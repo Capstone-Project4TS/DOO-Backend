@@ -2,21 +2,23 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import connect from './db/conn.js';
-// import router from './routes/route.js';
+import router from './routes/route.js';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 const app = express();
 
 /** middlewares */
 
 dotenv.config();
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors());
 app.use(morgan('tiny'));
 app.disable('x-powered-by'); 
 
 
 /** api routes */
-// app.use('/api', router)
+app.use('/api', router)
 
 /** start server only when we have valid connection */
 connect().then(() => {
