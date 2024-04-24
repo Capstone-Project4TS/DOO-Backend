@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // Define the document type schema
 const documentTypeSchema = new mongoose.Schema({
@@ -15,4 +15,4 @@ const documentTypeSchema = new mongoose.Schema({
 // Create the DocumentType model
 const DocumentType = mongoose.model('DocumentType', documentTypeSchema);
 
-module.exports = DocumentType;
+export default DocumentType;
