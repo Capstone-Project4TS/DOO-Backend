@@ -14,6 +14,9 @@ hibret-main/.env
 # production
 /build
 
+#FileStorage
+hibret-main/uploads
+
 # misc
 .DS_Store
 .env.local
