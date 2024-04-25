@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // Define the folder schema
 const folderSchema = new mongoose.Schema({
@@ -7,9 +7,6 @@ const folderSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  description: {
-    type: String
-  },
   parentFolder: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Folder'
@@ -17,15 +14,15 @@ const folderSchema = new mongoose.Schema({
   folderPath: {
     type: String
   },
-  documents: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Document'
-  }],
-  createdBy: {
+  ownerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
+  documents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document'
+  }],
   createdAt: {
     type: Date,
     default: Date.now
@@ -35,4 +32,4 @@ const folderSchema = new mongoose.Schema({
 // Create the Folder model
 const Folder = mongoose.model('Folder', folderSchema);
 
-module.exports = Folder;
+export default Folder;
