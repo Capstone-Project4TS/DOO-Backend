@@ -3,6 +3,11 @@ import cors from 'cors';
 import morgan from 'morgan';
 import connect from './db/conn.js';
 import router from './routes/route.js';
+import documentRoutes from './routes/document.routes.js';
+import documentTemplateRoutes from './routes/documentTemplate.routes.js'
+import documentTypeRoutes from './routes/documentType.routes.js'
+import folderRoutes from './routes/folder.routes.js'
+
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 const app = express();
@@ -19,6 +24,10 @@ app.disable('x-powered-by');
 
 /** api routes */
 app.use('/api', router)
+app.use('/documents', documentRoutes);
+//app.use('/documentTemplate', documentTemplateRoutes)
+app.use('/documentType', documentTypeRoutes)
+app.use('/folder', folderRoutes)
 
 /** start server only when we have valid connection */
 connect().then(() => {
