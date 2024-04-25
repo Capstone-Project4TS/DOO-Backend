@@ -6,7 +6,7 @@ const documentSchema = new mongoose.Schema({
   documentTypeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DocumentType',
-    required: false
+    required: true
   },
   title: {
     type: String,
