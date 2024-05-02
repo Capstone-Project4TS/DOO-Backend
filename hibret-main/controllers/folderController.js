@@ -13,8 +13,6 @@ export const createFolder = async (req, res) => {
   }
 };
 
-
-
 // Controller function to retrieve all folders
 export const getAllFolders = async (req, res) => {
   try {

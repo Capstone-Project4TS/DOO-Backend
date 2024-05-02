@@ -9,8 +9,7 @@ import { MongoClient } from 'mongodb';
 
 // POST: http://localhost:5000/api/admin/user/create
 export async function createAccounts(req, res) {
-    const users = await getUser();
-
+    const users = req.body;   //await getUser();
     try {
         // Check if request body contains user data array
         if (!Array.isArray(users) || users.length === 0) {
@@ -66,17 +65,26 @@ export async function createUser(user) {
             return { error: 'Username is already taken' };
         }
 
+        async function hashPassword(password) {
+            const salt = await bcrypt.genSalt(10); // Generate a random salt
+            const hashedPassword = await bcrypt.hash(password, salt);
+            return hashedPassword;
+        }
+        const defaultPassword = await generateDefaultPassword();
+        const hashedPassword = await hashPassword(defaultPassword);
+       
         const verificationToken = crypto.randomBytes(64).toString("hex");
 
         // Create a new user object with verification token
         const newUser = new UserModel({
-            password: "password", // Consider hashing the password before saving it
+            otp:defaultPassword,
+            password:hashedPassword, // Consider hashing the password before saving it
             email: user.email,
             role: user.role,
             username: user.username,
             emailToken: verificationToken,
         });
-
+        
         // Save the user to the database
         await newUser.save();
 
@@ -122,7 +130,6 @@ export async function getUser(req, res) {
 }
 
 
-
 /** GET: http://localhost:5000/api/generateOTP */
 export async function generateOTP(req, res) {
     req.app.locals.OTP = otpGenerator.generate(6, { lowerCaseAlphabets: false, upperCaseAlphabets: false, specialChars: false })
@@ -140,7 +147,6 @@ export async function verifyOTP(req, res) {
     return res.status(400).send({ error: "Invalid OTP" });
 }
 
-// successfully redirect user when OTP is valid
 /** GET: http://localhost:5000/api/createResetSession */
 export async function createResetSession(req, res) {
     if (req.app.locals.resetSession) {
@@ -229,23 +235,14 @@ export async function sendInvitation(users) {
     try {
         for (const user of users) {
 
-
-            async function hashPassword(password) {
-                const salt = await bcrypt.genSalt(10); // Generate a random salt
-                const hashedPassword = await bcrypt.hash(password, salt);
-                return hashedPassword;
-            }
-            const defaultPassword = generateDefaultPassword();
-            const hashedPassword = await hashPassword(defaultPassword);
-            user.password = hashedPassword;
-            const email = await EmailService.sendVerificationEmail(user, defaultPassword);
-            await user.save();
+            const email = await EmailService.sendVerificationEmail(user.email,user.username,user.otp);
             await EmailService.sendEmail(email);
 
             // Update account creation status to "Sent" after sending the invitation
             await UserService.updateAccountCreationStatus(user._id);
-            return defaultPassword;
+           
         }
+
 
         return { success: true, message: "Invitations sent successfully." };
     } catch (error) {
@@ -264,14 +261,12 @@ export async function getUsersByRoles(selectedRoles) {
         throw error;
     }
 };
+
 // Function to generate a default password
 async function generateDefaultPassword() {
     const pass = otpGenerator.generate(6, { lowerCaseAlphabets: false, upperCaseAlphabets: false, specialChars: false })
     return pass;
 }
-
-
-// UserController.js
 
 // Deactivate user account
 export async function deactivateAccount(req, res) {
@@ -326,9 +321,7 @@ export async function activateAccount(req, res) {
     }
 }
 
-
 // filter users
-
 export async function filterUsersByRoleAndStatus(role, statusType) {
     try {
         // Construct base query

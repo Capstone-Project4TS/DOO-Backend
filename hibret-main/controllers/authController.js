@@ -66,6 +66,10 @@ export async function login(req, res) {
             msg += user.username;
         }
 
+        if(user.otp!=null){
+            user.otp=null;
+        }
+
         // Update lastLoginDate
         user.lastLoginDate = new Date();
         await user.save();
@@ -83,6 +87,8 @@ export async function login(req, res) {
         };
         // Save the session (if you've modified data)
         await req.session.save();
+        
+       
         // Return success response
         return res.status(200).send({ msg });
     } catch (error) {
