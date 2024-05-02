@@ -33,10 +33,11 @@ app.use(session({
   secret: process.env.SESSION_KEY, // Secret key used to sign the session ID cookie
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   store:  MongoStore.create({ 
     mongoUrl: process.env.ATLAS_URI, // MongoDB connection URL
     collectionName: 'sessions', // Name of the collection to store sessions
-    ttl: 24 * 60 * 60, // Session expiration time in seconds (e.g., 1 day)
+    ttl: 60 * 60, // Session expiration time in seconds (e.g., 1 day)
   }),
   cookie: {
       maxAge: 3600000, // Session expiry time (in milliseconds), e.g., 1 hour

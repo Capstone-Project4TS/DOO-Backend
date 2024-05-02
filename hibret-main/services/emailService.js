@@ -13,14 +13,13 @@ export const createMailTransporter = async () => {
     return transporter;
 };
 
-export const sendVerificationEmail = async (user,password) => {
+export const sendVerificationEmail = async (email,username,password) => {
    
     const mailOptions = {
         from: '"DMS Hibret Bank" < sitra234@outlook.com> ',
-        to: user.email,
+        to: email,
         subject: "Verify your email...",
-        text: `Hello ${user.username},\n\nYour default password is: ${password}\n\nPlease log in to your account by clicking this link: http://${process.env.CLIENT_URL}/account/confirm`,
-        html: `<p>Hello ${user.name},</p>
+        html: `<p>Hello ${username},</p>
            <p>Your default password is: <strong>${password}</strong></p>
            <p>Please verify your email by clicking this link: <a href="http://${process.env.CLIENT_URL}/account/confirm">http://${process.env.CLIENT_URL}/account/confirm</a></p>`,
     };
