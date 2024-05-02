@@ -1,19 +1,9 @@
 import UserModel from '../models/users.model.js';
 import bcrypt from 'bcrypt';
-import { createHash } from 'crypto';
 import generateToken from '../services/tokenService.js';
-import TokenModel from '../models/token.model.js';
-import SessionModel from '../models/session.model.js';
 import * as UserServise from '../services/userService.js';
 import { validateEmail, validateLoginInput, validatePassword } from "../validations/user.validation.js";
 
-
-function generateUUID() {
-    return createHash('sha1')
-        .update(Math.random().toString())
-        .digest('hex')
-        .substring(0, 24);
-}
 
 /** POST: http://localhost:5000/api/authenticate */
 export async function verifyUser(req, res, next) {
@@ -31,21 +21,30 @@ export async function verifyUser(req, res, next) {
     }
 }
 
+/* LOGIN endpoint*/
 // POST: http://localhost:5000/api/login
 export async function login(req, res) {
 
-    const { email, password } = req.body;
+    const { username, email, password } = req.body;
     const { error } = validateLoginInput(req.body);
-
     if (error) return res.status(400).send({ message: error.details[0].message });
 
     try {
         // Find the user by email
         const user = await UserModel.findOne({ email });
-
+        // After a login attempt
+        const timeUntilUnlock = await UserServise.trackLoginAttempts(user.email);
+        // Check if the account is locked
+        if (timeUntilUnlock != null) {
+            return res.status(401).send({ error: `Account locked due to too many failed login attempts. Please try again in ${timeUntilUnlock} seconds.` });
+        }
+        if (user.activationStatus =='Deactivated') {
+            return res.status(401).send({ error: `Currently your account is locked.Please contact the Admin` });
+        }
         if (!user) {
             return res.status(404).send({ error: "Invalid email or password." });
         }
+
 
         // Compare passwords
         const passwordMatch = await bcrypt.compare(password, user.password);
@@ -54,65 +53,57 @@ export async function login(req, res) {
             return res.status(400).send({ error: "Invalid email or password." });
         }
 
-        // Create session
-        const sessionId = generateUUID(); // Generate a unique session ID
-        const session = new SessionModel({
-            sessionId,
-            userId: user._id,
-            userAgent: req.headers['user-agent'],
-            ipAddress: req.ip
-        });
-        await session.save();
-
-        // Set session ID in cookie
-        // res.cookie('sessionId', sessionId, { httpOnly: true, secure: true, sameSite: 'strict' });
-
         // Create JWT token
-        const token = await generateToken(res,user._id);
-
-        // Save token data in database
-        const tokenData = new TokenModel({
-            userId: user._id,
-            token,
-            createdAt: new Date(),
-        });
-        await tokenData.save();
+        const token = await generateToken(res, user._id, user.role);
+        user.token = token;
+        await user.save();
 
         // Check user's role and customize response
         let msg = "Login Successful...!";
         if (user.role === "admin") {
-            msg += " (Admin)";
+            msg += " Admin";
         } else {
             msg += user.username;
         }
 
-        // Store user session information
-        req.session = { id: user._id, username: user.username, role: user.role };
+        // Update lastLoginDate
+        user.lastLoginDate = new Date();
+        await user.save();
 
+        await UserServise.updateUserStatus(user._id);
         // Reset login attempts
-        // await UserServise.resetLoginAttempts(email);
+        await UserServise.resetLoginAttempts(email);
 
-        // Return success response
-        return res.status(200).send({
-            msg,
+
+        // Set user information on the session
+        req.session.data = {
+            _id: user._id,
             username: user.username,
             role: user.role,
-            token
-        });
+        };
+        // Save the session (if you've modified data)
+        await req.session.save();
+        // Return success response
+        return res.status(200).send({ msg });
     } catch (error) {
         console.error('Error occurred during login:', error);
         return res.status(500).send({ error: "Internal server error." });
     }
 }
 
-
+/* LOGOUT endpoint*/
+// POST: http://localhost:5000/api/logout
 export async function Logout(req, res) {
-    req.session.destroy((err) => {
-        if (err) {
-            res.status(500).send({ message: "Logout failed", err });
+    try {
+        if (req.session) {
+            await req.session.destroy(); // Wait for asynchronous session destruction
+            res.clearCookie('connect.sid'); // Clear the session cookie
+            res.status(200).send({ message: "Logout successful" });
+        } else {
+            res.status(400).send({ error: "No active session found" });
         }
-        //   req.sessionID = "";
-        //   req.logout();
-        res.status(200).send({ message: "Logout success" });
-    });
+    } catch (error) {
+        console.error('Error occurred during logout:', error);
+        res.status(500).send({ error: "Internal server error." });
+    }
 };

@@ -10,6 +10,6 @@ async function connect() {
         console.error("Error connecting to MongoDB:", error);
         throw error; // Re-throw the error for handling at the top level
     }
-}
+} 
 
 export default connect;

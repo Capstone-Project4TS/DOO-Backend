@@ -1,82 +1,96 @@
-import User  from "../models/users.model.js";
+import UserModel  from "../models/users.model.js";
 import dayjs from "dayjs";
 
-const getUser = (user) => user.hidePassword();
 
-const createUser = ({ username, email, password }) => new User({ username, email, password });
+export const getUser = (user) => user.hidePassword();
 
-const setResetPasswordToken = (user, resetTokenValue, expiryDate) => {
+export const createUser = ({ username, email, password }) => new UserModel({ username, email, password });
+
+export const setResetPasswordToken = (user, resetTokenValue, expiryDate) => {
   user.passwordResetToken = resetTokenValue;
   user.passwordResetExpires = expiryDate;
 };
 
-const findUserBy = async (prop, value) => await User.findOne({ [prop]: value });
+export const findUserBy = async (prop, value) => await UserModel.findOne({ [prop]: value });
 
-const findUserById = async (id) => await User.findById(id);
+export const findUserById = async (id) => await UserModel.findById(id);
 
-const saveUser = async (user) => await user.save();
+export const saveUser = async (user) => await user.save();
 
-const setUserPassword = async (user, password) => {
+export const setUserPassword = async (user, password) => {
   user.password = password;
   user.passwordResetToken = "";
   user.passwordResetExpires = dayjs().toDate();
   return await user.hashPassword();
 };
 
-const setUserVerified = async (user) => {
+export const setUserVerified = async (user) => {
   user.isVerified = true;
   user.expires = undefined;
 };
 
-const deleteUserById = async (user) => await User.findByIdAndDelete(user._id);
+export const deleteUserById = async (user) => await UserModel.findByIdAndDelete(user._id);
 
-const deleteUnverifiedUserByEmail = async (email) =>
-  await User.findOneAndDelete({ email, isVerified: false });
+export const deleteUnverifiedUserByEmail = async (email) =>
+  await UserModel.findOneAndDelete({ email, isVerified: false });
 
-  // Function to update user status based on login activity
-const updateUserStatus =async (userId) =>{
-  try {
-      const user = await UserModel.findById(userId);
+// Function to update user status based on login activity or update all users' statuses
+export const updateUserStatus = async (userId = null) => {
+    try {
+        let usersToUpdate = [];
 
-      if (!user) {
-          return; // User not found
-      }
+        if (userId) {
+            // Update status for a specific user
+            const user = await UserModel.findById(userId);
+            if (user) {
+                usersToUpdate.push(user);
+            }
+        } else {
+            // Update statuses for all users
+            usersToUpdate = await UserModel.find({});
+        }
 
-      // Check if the user has logged in recently
-      const lastLoginDate = user.lastLoginDate;
-      const daysSinceLastLogin = lastLoginDate ? dayjs().diff(dayjs(lastLoginDate), 'day') : Infinity;
+        for (const user of usersToUpdate) {
+            // Check if the user has logged in recently
+            const lastLoginDate = user.lastLoginDate;
+            const daysSinceLastLogin = lastLoginDate ? dayjs().diff(dayjs(lastLoginDate), 'day') : Infinity;
 
-      // Update user status
-      if (daysSinceLastLogin <= 3) {
-          user.status = 'Active';
-      } else {
-          user.status = 'Inactive';
-      }
+            // Update user status
+            if (daysSinceLastLogin <= 1) {
+                user.status = 'Active';
+            } else {
+                user.status = 'Inactive';
+            }
 
-      await user.save();
-  } catch (error) {
-      console.error(error);
-  }
+            await user.save();
+        }
+    } catch (error) {
+        console.error(error);
+    }
 }
 
+
 // Function to update account creation status when invite is sent
-const updateAccountCreationStatus= async(userId)=> {
+export const updateAccountCreationStatus= async(userId)=> {
   try {
       const user = await UserModel.findById(userId);
 
       if (!user) {
           return; // User not found
       }
-
+     if(user.accountCreationStatus =='Not Sent'){
       user.accountCreationStatus = 'Sent';
       await user.save();
+     }else{
+      return;
+     }
   } catch (error) {
       console.error(error);
   }
 }
 
 // Function to track login attempts and lock user account if necessary
-async function trackLoginAttempts (email) {
+export async function trackLoginAttempts (email) {
   try {
       const user = await UserModel.findOne({ email });
 
@@ -84,13 +98,14 @@ async function trackLoginAttempts (email) {
           return; // User not found
       }
 
-      const MAX_LOGIN_ATTEMPTS = 5;
+      const MAX_LOGIN_ATTEMPTS = 2;
       const LOCK_TIME = 1 * 60 * 60 * 1000; // 1 hour
 
       if (user.lockUntil && user.lockUntil > Date.now()) {
-          // Account is currently locked
-          return;
-      }
+        // Account is currently locked
+        const timeUntilUnlock = Math.ceil((user.lockUntil - Date.now()) / 1000); // Convert milliseconds to seconds
+       return timeUntilUnlock;
+    }
 
       if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
           user.lockUntil = Date.now() + LOCK_TIME;
@@ -106,7 +121,7 @@ async function trackLoginAttempts (email) {
 }
 
 // Function to reset login attempts after successful login
-const resetLoginAttempts= async (email) =>{
+export const resetLoginAttempts= async (email) =>{
   try {
       const user = await UserModel.findOne({ email });
 
@@ -122,19 +137,19 @@ const resetLoginAttempts= async (email) =>{
   }
 }
 
-export default {
-  getUser,
-  createUser,
-  updateUserStatus,
-  setResetPasswordToken,
-  updateAccountCreationStatus,
-  resetLoginAttempts,
-  trackLoginAttempts,
-  findUserBy,
-  findUserById,
-  saveUser,
-  setUserPassword,
-  setUserVerified,
-  deleteUserById,
-  deleteUnverifiedUserByEmail,
-};
+// export default {
+//   getUser,
+//   createUser,
+//   updateUserStatus,
+//   setResetPasswordToken,
+//   updateAccountCreationStatus,
+//   resetLoginAttempts,
+//   trackLoginAttempts,
+//   findUserBy,
+//   findUserById,
+//   saveUser,
+//   setUserPassword,
+//   setUserVerified,
+//   deleteUserById,
+//   deleteUnverifiedUserByEmail,
+// };

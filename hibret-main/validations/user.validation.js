@@ -25,13 +25,14 @@ export function validateLoginInput(input) {
 export function validateRegisterInput(input) {
   const usernameRegex = /^[a-zA-Z]+$/; // Regex to match only alpha characters
   const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[!@#$%^&*])(?=.*[0-9]).{5,}$/; // Regex to match strong password with at least one special character
+  const roleRegex = /^[a-zA-Z\s]+$/;
 
   const schema = Joi.object({
-    password: Joi.string().pattern(passwordRegex).min(8).max(255).required().messages({
-      'string.pattern.base': 'Password must be strong.',
-    }),
+    // password: Joi.string().pattern(passwordRegex).min(8).max(255).required().messages({
+    //   'string.pattern.base': 'Password must be strong.',
+    // }),
     email: Joi.string().min(5).max(255).required().email(),
-    role: Joi.string().pattern(usernameRegex).min(5).max(50).required().messages({
+    role: Joi.string().pattern(roleRegex).min(5).max(50).required().messages({
       'string.pattern.base': 'Role must contain only alpha characters.Shoud not be a number!',
     }),
     username: Joi.string().pattern(usernameRegex).min(5).max(15).required().messages({

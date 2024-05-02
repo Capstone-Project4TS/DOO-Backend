@@ -1,10 +1,7 @@
 import jwt from 'jsonwebtoken';
-import  Token from  "../models/token.model.js";
-import crypto from "crypto";
-import { Schema } from "mongoose";
 
-const generateToken = async (res, userId) => {
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
+const generateToken = async (res, userId,role) => {
+  const token = jwt.sign({ userId ,role}, process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 
@@ -18,26 +15,6 @@ const generateToken = async (res, userId) => {
   }
 
   return token; // Return the token in any case
-};
-
-
-
-export const createToken = () => {
-  return new Token({
-    token: crypto.randomBytes(16).toString("hex"),
-  });
-};
-
-export const findTokenBy = async (prop, value) => {
-  return await Token.findOne({ [prop]: value });
-};
-
-export const setUserId = (token, userId) => {
-  token._userId = userId;
-};
-
-export const saveToken = (token) => {
-  return token.save();
 };
 
 

@@ -12,7 +12,7 @@ const userSchema = new Schema({
     minlength: 2,
     maxlength: 50,
   },
-  password: { type: String, required: true, minlength: 6 , maxlength: 1024, }, // Minimum password length
+  password: { type: String, required: true, minlength: 6 , maxlength: 1024,default: "" }, // Minimum password length
   email: {
     type: String,
     required: true,
@@ -22,6 +22,8 @@ const userSchema = new Schema({
     trim: true, // Add trim option to remove whitespace
     lowercase: true, // Convert email to lowercase
   },
+  emailToken: { type: String },
+  token: { type: String , default: ""},
   role: { type: String, required: true, trim: true }, // Add trim option to remove whitespace
   passwordResetToken: { type: String ,default: ""},
   passwordResetExpires: { type: Date , default: dayjs().toDate() },
@@ -54,13 +56,10 @@ lockUntil: {
   type: Date,
   default: null
 }
-  // emailToken: { type: String },
 },
   {
     timestamps: true,
-  },
-
-  
+  }, 
   
 );
 

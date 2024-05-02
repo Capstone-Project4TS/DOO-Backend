@@ -1,20 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import connect from './db/conn.js';
+import connect from './config/conn.js';
 import router from './routes/route.js';
 import documentRoutes from './routes/document.routes.js';
 import documentTemplateRoutes from './routes/documentTemplate.routes.js'
 import documentTypeRoutes from './routes/documentType.routes.js'
 import folderRoutes from './routes/folder.routes.js'
-
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import session from "express-session";
 import passport from "passport";
 import  initPassportJS from "./startup/passport.js";
 import  initCORS  from "./startup/cors.js";
-import MongoDBSessionStore from 'connect-mongodb-session';
+import MongoStore from 'connect-mongo';
 
 const app = express();
 /** middlewares */
@@ -28,32 +27,24 @@ app.use(morgan('tiny'));
 app.disable('x-powered-by')
 initPassportJS();
 initCORS(app);
-/** api routes */
-app.use('/api', router)
-app.use('/documents', documentRoutes);
-//app.use('/documentTemplate', documentTemplateRoutes)
-app.use('/documentType', documentTypeRoutes)
-app.use('/folder', folderRoutes)
-
 
 // Middleware to initialize session
 app.use(session({
   secret: process.env.SESSION_KEY, // Secret key used to sign the session ID cookie
   resave: false,
   saveUninitialized: false,
+  store:  MongoStore.create({ 
+    mongoUrl: process.env.ATLAS_URI, // MongoDB connection URL
+    collectionName: 'sessions', // Name of the collection to store sessions
+    ttl: 24 * 60 * 60, // Session expiration time in seconds (e.g., 1 day)
+  }),
   cookie: {
       maxAge: 3600000, // Session expiry time (in milliseconds), e.g., 1 hour
       httpOnly: true, // Cookie accessible only through HTTP(S) requests, not client-side scripts
-  }
+      secure: false,
+    }
 }));
 
-  app.use(
-    cors({
-      origin: [`https://${process.env.HOST}`, `http://${process.env.HOST}`, `${process.env.HOST}`],
-      methods: ["GET", "POST", "PUT", "OPTIONS", "DELETE"],
-      credentials: true, // enable set cookie
-    })
-  );
   app.use(passport.session());
 /** start server only when we have valid connection */
 connect().then(() => {
@@ -72,3 +63,9 @@ connect().then(() => {
 
 })
 
+/** api routes */
+app.use('/api', router)
+app.use('/documents', documentRoutes);
+//app.use('/documentTemplate', documentTemplateRoutes)
+app.use('/documentType', documentTypeRoutes)
+app.use('/folder', folderRoutes)
