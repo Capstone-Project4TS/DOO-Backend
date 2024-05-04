@@ -7,9 +7,13 @@ import otpGenerator from 'otp-generator';
 import { validateEmail, validateRegisterInput } from "../validations/user.validation.js";
 import { MongoClient } from 'mongodb';
 
+const uri = "mongodb+srv://root:root@cluster0.nchnoj6.mongodb.net/HR";
+const dbName = "HR";
+const collectionName = "users";
+
 // POST: http://localhost:5000/api/admin/user/create
 export async function createAccounts(req, res) {
-    const users = req.body;   //await getUser();
+    const users = await getUser();
     try {
         // Check if request body contains user data array
         if (!Array.isArray(users) || users.length === 0) {
@@ -44,7 +48,6 @@ export async function createAccounts(req, res) {
         res.status(500).json({ message: 'Internal server error' });
     }
 }
-
 
 // Route to create a new user with email verification
 
@@ -96,9 +99,6 @@ export async function createUser(user) {
     }
 }
 
-const uri = "mongodb+srv://root:root@cluster0.nchnoj6.mongodb.net/HR";
-const dbName = "HR";
-const collectionName = "users";
 
 export async function getUser(req, res) {
     const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -155,7 +155,7 @@ export async function createResetSession(req, res) {
     return res.status(440).send({ error: "Session expired!" })
 }
 
-// update the password when we have valid session
+
 /** PUT: http://localhost:5000/api/resetPassword */
 export async function resetPassword(req, res) {
     try {
@@ -322,7 +322,7 @@ export async function activateAccount(req, res) {
 }
 
 // filter users
-export async function filterUsersByRoleAndStatus(role, statusType) {
+export async function filterUsersByRoleAndStatus(role, status,accountCreationStatus,activationStatus) {
     try {
         // Construct base query
         let query = {};
@@ -333,11 +333,16 @@ export async function filterUsersByRoleAndStatus(role, statusType) {
         }
 
         // Add status type filter if provided
-        if (statusType) {
-            // Assume 'statusType' is a field in the database schema
-            query.statusType = statusType;
+        if (status) {
+            query.status = status;
         }
 
+        if (accountCreationStatus) {
+            query.accountCreationStatus = accountCreationStatus;
+        }
+        if (activationStatus) {
+            query.activationStatus = activationStatus;
+        }
         // Execute the query
         const users = await UserModel.find(query);
         return users;

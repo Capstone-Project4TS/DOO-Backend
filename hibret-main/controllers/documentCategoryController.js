@@ -1,6 +1,5 @@
-// documentType.controller.js
 
-import DocumentType from "../models/DocumentType.model.js";
+import DocumentType from "../models/documentCategory.model.js";
 
 // Controller function to create a new document type
 export const createDocumentType = async (req, res) => {

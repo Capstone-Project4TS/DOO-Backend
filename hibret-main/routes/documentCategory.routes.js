@@ -2,7 +2,7 @@
 
 import { Router } from 'express';
 const router = Router();
-import { createDocumentType, getAllDocumentTypes, getDocumentTypeById, updateDocumentType, deleteDocumentType} from '../controllers/documentTypeController.js'
+import { createDocumentType, getAllDocumentTypes, getDocumentTypeById, updateDocumentType, deleteDocumentType} from '../controllers/documentCategoryController.js'
 
 // // Route for creating a new document type
  router.post('/', createDocumentType);

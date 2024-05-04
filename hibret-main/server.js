@@ -5,7 +5,8 @@ import connect from './config/conn.js';
 import router from './routes/route.js';
 import documentRoutes from './routes/document.routes.js';
 import documentTemplateRoutes from './routes/documentTemplate.routes.js'
-import documentTypeRoutes from './routes/documentType.routes.js'
+import documentCategoryRoutes from './routes/documentCategory.routes.js'
+import subCategoryRoutes from './routes/subCategory.routes.js'
 import folderRoutes from './routes/folder.routes.js'
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
@@ -68,5 +69,6 @@ connect().then(() => {
 app.use('/api', router)
 app.use('/documents', documentRoutes);
 //app.use('/documentTemplate', documentTemplateRoutes)
-app.use('/documentType', documentTypeRoutes)
+app.use('/admin/category', documentCategoryRoutes)
+app.use('/admin/subCategory', subCategoryRoutes)
 app.use('/folder', folderRoutes)
