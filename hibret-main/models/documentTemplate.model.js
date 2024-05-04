@@ -10,10 +10,10 @@ const documentTemplateSchema = new mongoose.Schema({
   description: {
     type: String
   },
-  documentType: {
+  subCategoryId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'DocumentType',
-    required: true
+    ref: 'SubCategory',
+    required: true,
   },
   sections: [{
     sectionHeader: {

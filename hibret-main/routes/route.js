@@ -21,13 +21,12 @@ router.route('/user').get(isLoggedIn,user.getUser) // user with username
 router.route('/generateOTP').get(auth.verifyUser, localVariables, user.generateOTP) // generate random OTP
 router.route('/verifyOTP').get(auth.verifyUser, user.verifyOTP) // verify generated OTP
 router.route('/createResetSession').get(user.createResetSession) // reset all the variables
+router.route('/filterUsers').get(user.filterUsersByRoleAndStatus) // get users by role and status
 
  /** PUT Methods */
 router.route('/resetPassword').put(auth.verifyUser, user.resetPassword); // use to reset password
 router.route('/change-password').put(isLoggedIn,Auth, user.changePassword);
-// Endpoint to deactivate a user account
 router.route('/admin/users/:userId/deactivate').put(isLoggedIn,authorize(["Admin"]), user.deactivateAccount);
-// Endpoint to activate a user account
 router.route('/admin/users/:userId/activate').put(isLoggedIn,adminMiddleware, user.activateAccount);
 
 export default router;
