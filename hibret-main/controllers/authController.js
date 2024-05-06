@@ -3,16 +3,16 @@ import bcrypt from 'bcrypt';
 import generateToken from '../services/tokenService.js';
 import * as UserServise from '../services/userService.js';
 import { validateEmail, validateLoginInput, validatePassword } from "../validations/user.validation.js";
-
+import  roleModel from '../models/role.model.js'
 
 /** POST: http://localhost:5000/api/authenticate */
 export async function verifyUser(req, res, next) {
     try {
 
-        const { username } = req.method == "GET" ? req.query : req.body;
+        const { email } = req.method == "GET" ? req.query : req.body;
 
         // check the user existance
-        let exist = await UserModel.findOne({ username });
+        let exist = await UserModel.findOne({ email });
         if (!exist) return res.status(404).send({ error: "Can't find User!" });
         next();
 
@@ -25,7 +25,7 @@ export async function verifyUser(req, res, next) {
 // POST: http://localhost:5000/api/login
 export async function login(req, res) {
 
-    const { username, email, password } = req.body;
+    const {  email, password } = req.body;
     const { error } = validateLoginInput(req.body);
     if (error) return res.status(400).send({ message: error.details[0].message });
 
@@ -53,14 +53,18 @@ export async function login(req, res) {
             return res.status(400).send({ error: "Invalid email or password." });
         }
 
+
+         // Retrieve role information associated with the user
+         const role = await roleModel.findOne({ _id: user.role_id });
+
         // Create JWT token
-        const token = await generateToken(res, user._id, user.role);
+        const token = await generateToken(res, user._id, role.roleName);
         user.token = token;
         await user.save();
 
         // Check user's role and customize response
         let msg = "Login Successful...!";
-        if (user.role === "admin") {
+        if (role.roleName === "DooAdmin") {
             msg += " Admin";
         } else {
             msg += user.username;
@@ -102,6 +106,7 @@ export async function login(req, res) {
 export async function Logout(req, res) {
     try {
         if (req.session) {
+            
             await req.session.destroy(); // Wait for asynchronous session destruction
             res.clearCookie('connect.sid'); // Clear the session cookie
             res.status(200).send({ message: "Logout successful" });
