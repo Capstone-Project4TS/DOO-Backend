@@ -1,19 +1,19 @@
-const mongoose = require('mongoose');
+import { Schema, model } from 'mongoose';
 
-// Define the document template schema
-const documentTemplateSchema = new mongoose.Schema({
-  _id: { type: mongoose.Schema.Types.ObjectId, required: true, auto: true },
+const documentTemplateSchema = new Schema({
+  _id: { type: Schema.Types.ObjectId, required: true, auto: true },
   name: {
     type: String,
-    required: true
+    required: true,
+    unique: true // Ensure unique names
   },
   description: {
-    type: String
+    type: String // Consider using a rich text type if needed
   },
   subCategoryId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'SubCategory',
-    required: true,
+    // optional: true (if applicable)
   },
   sections: [{
     sectionHeader: {
@@ -24,11 +24,27 @@ const documentTemplateSchema = new mongoose.Schema({
       type: String,
       enum: ['text', 'number', 'date', 'boolean'],
       required: true
+    },
+    // Additional fields for complex sections (optional)
+    isRequired: {
+      type: Boolean,
+      default: false
+    },
+    conditionalLogic: { // Define logic for displaying sections based on conditions
+      type: Boolean,
+      optional: true
+
     }
-  }]
+  }],
+  conditionLogic: {  // New field for overall template condition logic
+    type: Boolean,
+    optional: true
+  },
+  eligibleConditions: [{  // Simplified array for eligible conditions
+    fieldName: String,  // Use a more descriptive name
+    dataType: String  // Renamed for clarity
+  }],
 });
+const DocumentTemplate = model('DocumentTemplate', documentTemplateSchema);
 
-// Create the DocumentTemplate model
-const DocumentTemplate = mongoose.model('DocumentTemplate', documentTemplateSchema);
-
-module.exports = DocumentTemplate;
+export default DocumentTemplate;
