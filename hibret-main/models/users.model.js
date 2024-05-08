@@ -1,9 +1,6 @@
 import mongoose from 'mongoose';
-import dayjs from "dayjs";
-import bcrypt from 'bcrypt';
 const Schema = mongoose.Schema;
 
-// Define the User schema
 const userSchema = new Schema({
   _id: { type: mongoose.Schema.Types.ObjectId, required: true, auto: true },
   username: {
@@ -20,20 +17,24 @@ const userSchema = new Schema({
     unique: true,
     minlength: 5,
     maxlength: 255,
-    trim: true, // Add trim option to remove whitespace
-    lowercase: true, // Convert email to lowercase
+    trim: true, 
+    lowercase: true, 
   },
-  emailToken: { type: String },
   token: { type: String , default: ""},
-  role: { type: String, required: true, trim: true }, // Add trim option to remove whitespace
-  passwordResetToken: { type: String ,default: ""},
-  passwordResetExpires: { type: Date , default: dayjs().toDate() },
-  // isActive: { type: Boolean, default: true },
+  role_id:  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role'
+  }, 
+
   status: {
     type: String,
     enum: ['Active', 'Inactive'],
     default: 'Inactive'
 },
+archivedWorkflows: [{
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Workflow'
+}],
 
 accountCreationStatus: {
   type: String,
@@ -65,34 +66,6 @@ lockUntil: {
 );
 
 
-userSchema.methods.comparePassword = function (password) {
-  return bcrypt.compareSync(password, this.password);
-};
-
-userSchema.methods.hashPassword = function () {
-  const user = this;
-  return new Promise((resolve, reject) => {
-    bcrypt.genSalt(10, (err, salt) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      bcrypt.hash(user.password, salt, (err, hash) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        user.password = hash;
-        resolve(hash);
-      });
-    });
-  });
-};
-
-userSchema.methods.hidePassword = function () {
-  return omit(["password", "__v", "_id"], this.toObject({ virtuals: true }));
-};
-// Define the User model
 const User = mongoose.model('User', userSchema);
 
 export default User;

@@ -1,3 +1,4 @@
+import { compareSync } from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 /** auth middleware */
@@ -5,15 +6,17 @@ export default async function Auth(req, res, next){
     try {
         
         // access authorize header to validate request
-        const token = req.headers.authorization.split(" ")[1];
+        const token = req.cookies.jwt;
 
         // retrive the user details fo the logged in user
         const decodedToken =  jwt.verify(token, process.env.JWT_SECRET);
 
         req.user = decodedToken;
+        console.log(decodedToken)
         next()
 
     } catch (error) {
+      
         res.status(401).json({ error : "Authentication Failed!"})
     }
 }
@@ -36,7 +39,7 @@ export function adminMiddleware(req, res, next) {
         return res.status(401).json({ error: "Unauthorized: No active session found" });
       }
   
-      if (req.session.data.role !== 'Admin') {
+      if (req.session.data.role !== 'DooAdmin') {
         return res.status(403).json({ error: "Forbidden" });
       }
   
@@ -53,7 +56,7 @@ export function adminMiddleware(req, res, next) {
 // Middleware to protect routes based on user role
 export function authorize (roles) {
     return (req, res, next) => {
-      const token = req.headers.authorization;
+      const token = req.cookies.jwt;
   
       if (!token) {
         return res.status(401).json({ message: "Unauthorized" });

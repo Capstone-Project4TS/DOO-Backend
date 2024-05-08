@@ -6,21 +6,25 @@ import {
   getSubCategoryById,
   updateSubCategory,
   deleteSubCategory,
+  getSubCategoryByCatId,
 } from '../controllers/subCategoryController.js'; 
 
 // Route for creating a new sub-category
-router.post('/', createSubCategory);
+router.post('/subCategory', createSubCategory);
 
 // Route for retrieving all sub-categories
-router.get('/', getAllSubCategories);
+router.get('/subCategory', getAllSubCategories);
 
 // Route for retrieving a specific sub-category by ID
-router.get('/:id', getSubCategoryById);
+router.get('/subCategory/:id', getSubCategoryById);
+
+// Route for retrieving a specific sub-category by ID
+router.get('/subCategory/cat/:id', getSubCategoryByCatId);
 
 // Route for updating a sub-category by ID
-router.put('/:id', updateSubCategory);
+router.put('/subCategory/:id', updateSubCategory);
 
 // Route for deleting a sub-category by ID
-router.delete('/:id', deleteSubCategory);
+router.delete('/subCategory/:id', deleteSubCategory);
 
 export default router;

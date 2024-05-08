@@ -2,6 +2,12 @@
 import multer from 'multer';
 import Document from '../models/document.model.js'
 import upload from '../config/multerConfig.js'
+import { createWriteStream } from 'fs';
+import { createPdf } from 'pdfmake/build/pdfmake.js';
+import pkg from 'pdfmake/build/vfs_fonts.js';
+const { vfs } = pkg;
+
+
 
 const createDocument = async (req, res) => {
   try {
@@ -12,7 +18,7 @@ const createDocument = async (req, res) => {
       }
 
       // Extract common document data
-      const { documentTypeId, title, creationMethod, ownerId, workflowId, repositoryId, folderId, templateId } = req.body;
+      const {  eId, title, creationMethod, ownerId, workflowId, repositoryId, folderId, templateId } = req.body;
 
       // Extract uploaded files
       const files = req.files || [];
@@ -170,6 +176,75 @@ export const createDocumentFromBlank = async (req, res) => {
 };
 
 
+export async function generatePdfFromDocumentData(documentsData) {
+  try {
+      const generatedDocuments = []; // Array to store generated documents
+      
+      // Iterate over each document data object
+      for (const documentData of documentsData) {
+          const { title, name, sections, documentTemplate } = documentData;
+
+          // Define a PDF document definition
+          const documentDefinition = {
+              content: []
+          };
+
+          // Add document name and description as title
+          documentDefinition.content.push({ text: title, style: 'title' });
+          documentDefinition.content.push({ text: name, style: 'name' });
+
+          // Iterate over each section in the document
+          sections.forEach(section => {
+              // Add section header
+              documentDefinition.content.push({ text: section.title, style: 'header' });
+
+              // Add section content based on section data type
+              switch (section.type) {
+                  case 'text':
+                      // Add text input field
+                      documentDefinition.content.push({ text: content.value }); // Replace with actual input value
+                      break;
+                  case 'number':
+                      // Add number input field
+                      documentDefinition.content.push({ text: content.value }); // Replace with actual input value
+                      break;
+                  // Add cases for other data types as needed
+              }
+          });
+
+          // Create PDF
+          const pdf = createPdf(documentDefinition, null, vfs);
+
+          // Convert PDF buffer to Base64 string
+          const pdfBase64 = pdf.toString('base64');
+
+          // Save PDF in the database
+          const newDocument = new Document({
+              title,
+              name,
+              pdfBase64,
+              sections,
+              templateId: documentTemplate // Pair document with document template
+          });
+          await newDocument.save();
+
+          // Add document to the array of generated documents
+          generatedDocuments.push({
+            documentTemplate: documentTemplate,
+            data: newDocument
+            
+        });
+         
+      }
+
+      return generatedDocuments;
+  } catch (error) {
+      console.error('Error generating PDFs:', error);
+      throw new Error('Failed to generate PDFs');
+  }
+}
+
+
 export default 
 {
      createDocument, 
@@ -177,5 +252,6 @@ export default
      getDocumentById, 
      getDocumentsByFilter, 
      deleteDocumentById,
-     createDocumentFromBlank
+     createDocumentFromBlank,
+     generatePdfFromDocumentData
  };

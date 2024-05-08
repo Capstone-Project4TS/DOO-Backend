@@ -5,18 +5,18 @@ const router = Router();
 import { createDocumentType, getAllDocumentTypes, getDocumentTypeById, updateDocumentType, deleteDocumentType} from '../controllers/documentCategoryController.js'
 
 // // Route for creating a new document type
- router.post('/', createDocumentType);
+ router.post('/category', createDocumentType);
 
 // // Route for retrieving all document types
-router.get('/', getAllDocumentTypes);
+router.get('/category', getAllDocumentTypes);
 
 // // Route for retrieving a specific document type by ID
-router.get('/:id', getDocumentTypeById);
+router.get('/category/:id', getDocumentTypeById);
 
 // // Route for updating a document type by ID
-router.put('/:id', updateDocumentType);
+router.put('/category/:id', updateDocumentType);
 
 // // Route for deleting a document type by ID
-router.delete('/:id', deleteDocumentType);
+router.delete('/category/:id', deleteDocumentType);
 
 export default router;

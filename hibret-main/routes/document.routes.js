@@ -1,5 +1,4 @@
 import { Router } from "express";
-import multer from "multer";
 import documentController from "../controllers/documentController.js";
 
 const router = Router();
@@ -8,7 +7,8 @@ const { createDocument,
    getDocumentById,
    getDocumentsByFilter,
    deleteDocumentById,
-   createDocumentFromBlank } = documentController;
+   createDocumentFromBlank,
+   generatePdfFromDocumentData } = documentController;
 
 //GET
 router.get('/', getAllDocuments);
@@ -23,5 +23,7 @@ router.post('/blank', createDocumentFromBlank)
 
 //DELETE
 router.delete('/:id', deleteDocumentById);
+
+router.post('/generatePDF', generatePdfFromDocumentData);
 
 export default router;

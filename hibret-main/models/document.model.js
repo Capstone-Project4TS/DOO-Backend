@@ -6,11 +6,11 @@ const documentSchema = new mongoose.Schema({
   documentTypeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DocumentType',
-    required: true
+    // required: true
   },
   title: {
     type: String,
-    required: true
+    // required: true
   },
   content: {
     type: String, // Assuming content is stored as a string for documents created from a blank page
@@ -19,6 +19,10 @@ const documentSchema = new mongoose.Schema({
   filePath: {
     type: String,
     required: false // This field is required for documents created through uploading
+  },
+  pdfBase64: {
+    type: String, // Stores Base64-encoded PDF data
+    required: false // Adjust based on your workflow
   },
   creationDate: {
     type: Date,
@@ -57,12 +61,12 @@ const documentSchema = new mongoose.Schema({
   creationMethod: {
     type: String,
     enum: ['template', 'fileUpload', 'blankPage'],
-    required: true
+    // required: true
   },
   ownerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    // required: true
   },
   acl: [{
     userId: {

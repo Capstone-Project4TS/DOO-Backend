@@ -23,7 +23,7 @@ export const createSubCategory = async (req, res) => {
   // Controller function to retrieve all sub-categories
 export const getAllSubCategories = async (req, res) => {
     try {
-      const subCategories = await SubCategory.find().populate('categoryId'); // Populate category details (optional)
+      const subCategories = await SubCategory.find().populate('categoryId'); 
       res.status(200).json(subCategories);
     } catch (error) {
       console.error('Error retrieving sub-categories:', error);
@@ -34,7 +34,7 @@ export const getAllSubCategories = async (req, res) => {
   // Controller function to retrieve a sub-category by ID
   export const getSubCategoryById = async (req, res) => {
     try {
-      const subCategory = await SubCategory.findById(req.params.id).populate('categoryId'); // Populate category details (optional)
+      const subCategory = await SubCategory.findById(req.params.id).populate('categoryId'); 
       if (!subCategory) {
         return res.status(404).json({ error: 'Sub-category not found' });
       }
@@ -44,6 +44,21 @@ export const getAllSubCategories = async (req, res) => {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+
+    // Controller function to retrieve a sub-category by ID
+    export const getSubCategoryByCatId = async (req, res) => {
+      try {
+        const subCategory = await SubCategory.find({ categoryId: req.params.id }); 
+
+        if (subCategory.length==0) {
+          return res.status(404).json({ error: 'Sub-category not found' });
+        }
+        res.status(200).json(subCategory);
+      } catch (error) {
+        console.error('Error retrieving sub-category by ID:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    };
   
   // Controller function to update a sub-category by ID
   export const updateSubCategory = async (req, res) => {

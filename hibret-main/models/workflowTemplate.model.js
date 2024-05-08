@@ -1,15 +1,101 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, mongoose } from 'mongoose';
 
-const workflowTemplateSchema = new Schema({
+const workflowTemplateSchema = new mongoose.Schema({
+    _id: { type: mongoose.Schema.Types.ObjectId, required: true, auto: true },
     name: {
         type: String,
-        required: true,
+        required: true
+    },
+    categoryId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Category' // Reference to the Category model
+    },
+    subCategoryId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'SubCategory' // Reference to the SubCategory model
     },
     stages: [{
-        name: String,
-        approvers: [String],
-        conditions: [String], // Optional conditions for transitioning to the next stage
+        stageTitle: {
+            type: String,
+            required: true
+        },
+        hasCondition: {
+            type: Boolean,
+            default: false
+        },
+        condition: {
+            type: String,
+            optional: true
+        },
+        approverType: {
+            type: String,
+            enum: ['Single Person', 'Committee'],
+            required: true
+        },
+        committee_permissions: {
+             permission: {
+                type: String,
+                enum: ['approve', 'review'], // Define enum values
+
+            },
+            role_ids: [{
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Role'
+            }],
+            min_approvals: Number // Only for approval permission
+        }, // Conditional, if reviewer_type is "Committee"
+        single_permissions: {
+            role_id: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Role'
+            },
+            permission: {
+                type: String,
+                enum: ['approve', 'review'], // Define enum values
+                required: true
+            },
+        },// Conditional, if reviewer_type is "single"
+        // Additional properties for variant condition values (if applicable)
+        conditionVariants: [{  // Optional array for multiple condition values
+            condition_name: String,
+            operator: String,
+            value: Number,
+            approverType: {
+                type: String,
+                enum: ['Single Person', 'Committee'],
+                required: true
+            },
+            committee_permissions: {
+                permission: {
+                    type: String,
+                    enum: ['approve', 'review'], // Define enum values
+                    required: true
+                },
+                role_ids: [{
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'Role'
+                }],
+                min_approvals: Number // Only for approval permission
+            }, // Conditional, if reviewer_type is "Committee"
+            single_permissions: {
+                role_id: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'Role'
+                },
+                permission: {
+                    type: String,
+                    enum: ['approve', 'review'], // Define enum values
+                    required: true
+                },
+            }, // Conditional, if reviewer_type is "single"
+            
+        }]
     }],
+
+    requiredDocumentTemplates: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'DocumentTemplate' // Reference to the DocumentTemplate model
+    }]
 });
 
 const WorkflowTemplate = model('WorkflowTemplate', workflowTemplateSchema);

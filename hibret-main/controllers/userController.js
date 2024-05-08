@@ -83,7 +83,7 @@ export async function createUser(user) {
             otp:defaultPassword,
             password:hashedPassword, // Consider hashing the password before saving it
             email: user.email,
-            role: user.role,
+            role_id: user.role_id,
             username: user.username,
             emailToken: verificationToken,
         });
@@ -115,8 +115,8 @@ export async function getUser(req, res) {
 
         // Extract relevant user data (username, email, and role)
         const sanitizedUsers = users.map(user => {
-            const { username, email, role } = user; // Extract only desired fields
-            return { username, email, role };
+            const { username, email, role_id } = user; // Extract only desired fields
+            return { username, email, role_id };
         });
 
         return sanitizedUsers; // Send user data to the client
@@ -130,15 +130,21 @@ export async function getUser(req, res) {
 }
 
 
-/** GET: http://localhost:5000/api/generateOTP */
+/** POST: http://localhost:5000/api/generateOTP */
 export async function generateOTP(req, res) {
+    const {email} = req.body;
+    const user = await UserModel.findOne({ email });
     req.app.locals.OTP = otpGenerator.generate(6, { lowerCaseAlphabets: false, upperCaseAlphabets: false, specialChars: false })
-    res.status(201).send({ code: req.app.locals.OTP })
+    
+    const sendingOtp = await EmailService.sendVerificationEmail(user.email,user.username,req.app.locals.OTP );
+    await EmailService.sendEmail(sendingOtp);
+
+    res.status(201).send({ msg: "A reset password code is sent to your email!" })
 }
 
 /** GET: http://localhost:5000/api/verifyOTP */
 export async function verifyOTP(req, res) {
-    const { code } = req.query;
+    const { code } = req.body;
     if (parseInt(req.app.locals.OTP) === parseInt(code)) {
         req.app.locals.OTP = null; // reset the OTP value
         req.app.locals.resetSession = true; // start session for reset password
@@ -158,14 +164,15 @@ export async function createResetSession(req, res) {
 
 /** PUT: http://localhost:5000/api/resetPassword */
 export async function resetPassword(req, res) {
+    const id = req.user;
     try {
         if (!req.app.locals.resetSession) {
             return res.status(440).send({ error: "Session expired!" });
         }
 
-        const { username, password } = req.body;
+        const {  password } = req.body;
 
-        const user = await UserModel.findOne({ username });
+        const user = await UserModel.findOne({ _id: id.userId  });
 
         if (!user) {
             return res.status(404).send({ error: "Username not Found" });
@@ -176,7 +183,7 @@ export async function resetPassword(req, res) {
         await UserModel.updateOne({ username: user.username }, { password: hashedPassword });
 
         req.app.locals.resetSession = false; // reset session
-        return res.status(201).send({ msg: "Record Updated...!" });
+        return res.status(201).send({ msg: "You have successfully resetted your password...!" });
     } catch (error) {
         console.error('Error resetting password:', error);
         return res.status(500).send({ error: "Internal server error" });
@@ -221,7 +228,12 @@ export async function changePassword(req, res) {
 // Endpoint to send invitations
 export async function sendInvitations(req, res) {
     try {
+        
         const selectedRoles = req.body.selectedRoles; // Assuming you pass selected roles in the request body
+       // Validate that selectedRoles is an array of valid ObjectId(s)
+        if (!Array.isArray(selectedRoles) || selectedRoles.some(id => typeof id !== 'string')) {
+            return res.status(400).json({ success: false, message: "Invalid selected roles." });
+        }
         const users = await getUsersByRoles(selectedRoles);
         const result = await sendInvitation(users);
         return res.status(200).json(result);
@@ -255,7 +267,7 @@ export async function sendInvitation(users) {
 export async function getUsersByRoles(selectedRoles) {
     try {
         // Query the database to find users based on selected roles
-        const users = await UserModel.find({ role: { $in: selectedRoles } });
+        const users = await UserModel.find({ role_id: { $in: selectedRoles } });
         return users;
     } catch (error) {
         throw error;

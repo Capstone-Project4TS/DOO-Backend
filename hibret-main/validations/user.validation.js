@@ -13,7 +13,7 @@ export function validateUser(user) {
 
 export function validateLoginInput(input) {
   const schema = Joi.object({
-    username: Joi.string().min(5).max(15).required(),
+    // username: Joi.string().min(5).max(15).required(),
     email: Joi.string().min(10).max(50).required(),
     password: Joi.string().min(5).max(255).required(),
   });
@@ -22,24 +22,15 @@ export function validateLoginInput(input) {
   return schema.validate(input);
 }
 
+// Define the validation schema
+const schema = Joi.object({
+  username: Joi.string().alphanum().min(5).max(50).required(),
+  email: Joi.string().email().required(),
+  role_id: Joi.string().pattern(new RegExp('^[0-9a-fA-F]{24}$')).required(), // Assuming role_id is a valid MongoDB ObjectId
+});
+
+// Function to validate input against the schema
 export function validateRegisterInput(input) {
-  const usernameRegex = /^[a-zA-Z]+$/; // Regex to match only alpha characters
-  const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[!@#$%^&*])(?=.*[0-9]).{5,}$/; // Regex to match strong password with at least one special character
-  const roleRegex = /^[a-zA-Z\s]+$/;
-
-  const schema = Joi.object({
-    // password: Joi.string().pattern(passwordRegex).min(8).max(255).required().messages({
-    //   'string.pattern.base': 'Password must be strong.',
-    // }),
-    email: Joi.string().min(5).max(255).required().email(),
-    role: Joi.string().pattern(roleRegex).min(5).max(50).required().messages({
-      'string.pattern.base': 'Role must contain only alpha characters.Shoud not be a number!',
-    }),
-    username: Joi.string().pattern(usernameRegex).min(5).max(15).required().messages({
-      'string.pattern.base': 'Username must contain only alpha characters.Shoud not be a number!',
-    }),
-  });
-
   return schema.validate(input);
 }
 
