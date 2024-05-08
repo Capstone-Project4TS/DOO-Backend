@@ -1,35 +1,46 @@
 import DocumentTemplate from '../models/documentTemplate.model.js';
-import mongoose from 'mongoose';
 
 // Create a new document template
 export async function createDocumentTemplate(req, res) {
-        try {
-            const { name, description, subCategoryId, sections, conditionLogic } = req.body;
-    
-            // Check if sections have conditional logic and add them to eligibleConditions array
-            const eligibleConditions = sections
-                .filter(section => section.conditionalLogic)
-                .map(section => ({
-                    fieldName: section.sectionHeader,
-                    dataType: section.sectionDataType
-                }));
-    
-            const newTemplate = new DocumentTemplate({
-                name,
-                description,
-                subCategoryId,
-                sections,
-                conditionLogic,
-                eligibleConditions
+    try {
+        const { name, description, subCategoryId, sections, conditionLogic } = req.body;
+
+       
+        // Initialize an empty array to store eligible conditions
+        let eligibleConditions = [];
+
+        // Iterate over each section to check for conditional logic
+        sections.forEach(section => {
+            // Iterate over each content in the section
+            section.content.forEach(content => {
+                // Check if the content has conditional logic
+                if (content.conditionLogic) {
+                    // Add the content's title and type as an eligible condition
+                    eligibleConditions.push({
+                        fieldName: content.title,
+                        dataType: content.type
+                    });
+                }
             });
-    
-            await newTemplate.save();
-            return res.status(201).json(newTemplate);
-        } catch (err) {
-            console.error('Error in createDocumentTemplate:', err);
-            return res.status(400).json({ message: 'Failed to create document template.' });
-        }
+        });
+
+
+        const newTemplate = new DocumentTemplate({
+            name,
+            description,
+            subCategoryId,
+            sections,
+            conditionLogic,
+            eligibleConditions
+        });
+
+        await newTemplate.save();
+        return res.status(201).json(newTemplate);
+    } catch (err) {
+        console.error('Error in createDocumentTemplate:', err);
+        return res.status(400).json({ message: 'Failed to create document template.' });
     }
+}
 
 
 // Get all document templates
@@ -87,14 +98,14 @@ export async function deleteDocumentTemplate(req, res) {
 }
 
 export async function getDocumentBySub(req, res) {
-    const subcategoryId= req.params;
-    try{
-    const templates = await DocumentTemplate.find({ subCategoryId: subcategoryId.id});
-    return res.status(200).json({ templates});
+    const subcategoryId = req.params;
+    try {
+        const templates = await DocumentTemplate.find({ subCategoryId: subcategoryId.id });
+        return res.status(200).json({ templates });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
-    
+
 }
 
 export async function getConditionsByTemp(req, res) {
@@ -104,27 +115,27 @@ export async function getConditionsByTemp(req, res) {
         if (!Array.isArray(templateIds) || templateIds.length === 0) {
             return res.status(400).json({ success: false, message: 'Invalid template IDs provided.' });
         }
-        
-    // Query database to fetch document templates based on provided template IDs
-    const documentTemplates = await DocumentTemplate.find({ _id: { $in: templateIds } }).populate('eligibleConditions');
 
-    // Map over document templates to format the data
-    const formattedTemplates = documentTemplates.map(template => ({
-        _id: template._id,
-        name: template.name,
-        eligibleConditions: template.eligibleConditions.map(condition => ({
-            fieldName: condition.fieldName,
-            dataType: condition.dataType
-        }))
-    }));
+        // Query database to fetch document templates based on provided template IDs
+        const documentTemplates = await DocumentTemplate.find({ _id: { $in: templateIds } }).populate('eligibleConditions');
 
-   // return formattedTemplates;
-      return res.status(200).json({ formattedTemplates});
+        // Map over document templates to format the data
+        const formattedTemplates = documentTemplates.map(template => ({
+            _id: template._id,
+            name: template.name,
+            eligibleConditions: template.eligibleConditions.map(condition => ({
+                fieldName: condition.fieldName,
+                dataType: condition.dataType
+            }))
+        }));
+
+        // return formattedTemplates;
+        return res.status(200).json({ formattedTemplates });
     } catch (error) {
-      console.error(error);
-      throw error; // Re-throw the error for handling
+        console.error(error);
+        throw error; // Re-throw the error for handling
     }
-  }
+}
 //         // Query database to fetch document templates based on provided template IDs
 //         const documentTemplates = await DocumentTemplate.find({ _id: { $in: templateIds } }).populate('eligibleConditions');
 

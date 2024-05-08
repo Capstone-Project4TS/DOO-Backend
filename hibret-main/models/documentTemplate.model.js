@@ -16,25 +16,36 @@ const documentTemplateSchema = new Schema({
     // optional: true (if applicable)
   },
   sections: [{
-    sectionHeader: {
+    title: {
       type: String,
       required: true
     },
-    sectionDataType: {
-      type: String,
-      enum: ['text', 'number', 'date', 'boolean'],
-      required: true
-    },
-    // Additional fields for complex sections (optional)
-    isRequired: {
-      type: Boolean,
-      default: false
-    },
-    conditionalLogic: { // Define logic for displaying sections based on conditions
-      type: Boolean,
-      optional: true
-
-    }
+    content:[
+      {
+        title: {
+          type: String,
+          required: true
+        },
+        type: {
+        type: String,
+        enum: ['text', 'number', 'date', 'boolean','upload','select'],
+        required: true
+      },
+ 
+      options: [String], 
+      
+      // Additional fields for complex sections (optional)
+      isRequired: {
+        type: Boolean,
+        default: false
+      },
+      conditionalLogic: { // Define logic for displaying sections based on conditions
+        type: Boolean,
+        optional: true
+  
+      }}
+    ]
+    
   }],
   conditionLogic: {  // New field for overall template condition logic
     type: Boolean,
