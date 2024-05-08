@@ -1,6 +1,9 @@
 import { Schema, model } from 'mongoose';
+import mongoose from 'mongoose';
+
 
 const userWorkflowSchema = new Schema({
+  _id: { type: mongoose.Schema.Types.ObjectId, required: true, auto: true },
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
