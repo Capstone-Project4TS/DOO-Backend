@@ -11,6 +11,11 @@ const roleSchema = new mongoose.Schema({
     required: true,
     unique: true // Ensure unique role names
   },
+  depId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Department', 
+    required: true 
+  },
   permissions: {
     type: Object,
     required: true,
