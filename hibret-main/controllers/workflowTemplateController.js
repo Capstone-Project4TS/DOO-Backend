@@ -1,6 +1,6 @@
 import WorkflowTemplate from '../models/workflowTemplate.model.js';
-
-import mongoose from 'mongoose'; // Assuming Mongoose for ObjectId validation
+import DocumentTemplate from '../models/documentTemplate.model.js'
+import mongoose from 'mongoose'; 
 
 // Create new workflow template
 export const createWorkflowTemplate = async (req, res) => {
@@ -19,7 +19,7 @@ export const createWorkflowTemplate = async (req, res) => {
 
     // Validate stages
     stages.forEach(stage => {
-      if (!stage.stageTitle || !['Single Person', 'Board'].includes(stage.approverType)) {
+      if (!stage.stageTitle || !['Single Person', 'Committee'].includes(stage.approverType)) {
         throw new Error('Invalid stage data: Missing required properties or invalid approver type');
       }
 
@@ -76,6 +76,35 @@ export async function getAllWorkflowTemplates(req, res) {
         res.status(500).json({ message: err.message });
     }
 }
+
+// Get all workflow templates
+export async function getAllRequiredDocumentTemplates(req, res) {
+  const workflowId= req.params;
+  try {
+      const template = await WorkflowTemplate.find({ workflowId }).populate('requiredDocumentTemplates');
+      if (!template) {
+        return res.status(404).json({ message: 'Workflow template not found' });
+      }
+  
+      console.log('Template:', template);  
+
+      const documents= [];
+      for (const item of template) {
+        console.log(`ID: ${item._id}`);
+        console.log(`Name: ${item.name}`);
+      
+        // Access other fields similarly
+        console.log(`Category ID: ${item.categoryId}`);
+        console.log(`Required Document IDs: ${item.requiredDocumentTemplates}`);
+        documents.push(item.requiredDocumentTemplates);
+      }
+
+       // Send document contents array as response
+       res.status(200).json({ documents });
+  } catch (err) {
+      res.status(500).json({ message: err.message });
+  }
+} 
 
 // Get a single workflow template by ID
 export async function getWorkflowTemplateById(req, res) {

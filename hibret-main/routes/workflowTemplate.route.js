@@ -5,7 +5,8 @@ import {
     getAllWorkflowTemplates,
     getWorkflowTemplateById,
     updateWorkflowTemplate,
-    deleteWorkflowTemplate
+    deleteWorkflowTemplate,
+    getAllRequiredDocumentTemplates
 } from
     '../controllers/workflowTemplateController.js';
 
@@ -15,5 +16,7 @@ router.get('/workflow-templates', getAllWorkflowTemplates);
 router.get('/workflow-templates/:id', getWorkflowTemplateById);
 router.put('/workflow-templates/:id', updateWorkflowTemplate);
 router.delete('/workflow-templates/:id', deleteWorkflowTemplate);
+router.get('/workflow-templates/requiredDoc/:id', getAllRequiredDocumentTemplates);
+
 
 export default router;
