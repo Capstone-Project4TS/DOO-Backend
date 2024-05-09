@@ -70,6 +70,21 @@ export const getAllWorkflows = async (req, res) => {
     }
 };
 
+// Controller function to fetch all workflow instances
+export const getWorkflowsById = async (req, res) => {
+    const {workflowId}= req.params;
+    try {
+        // Fetch  workflow instances from the database
+        const workflow = await Workflow.findById(workflowId);
+
+        console.log(workflow);
+        return res.status(200).json(workflow);
+    } catch (error) {
+        console.error('Error fetching workflows:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 export async function updateWorkflow(req, res) {
     const { id } = req.params;
     const updates = req.body;
@@ -94,7 +109,6 @@ export async function updateWorkflow(req, res) {
     }
 }
 
-
 export async function deleteWorkflow(req, res) {
     const { id } = req.params;
 
@@ -115,6 +129,32 @@ export async function deleteWorkflow(req, res) {
     }
 }
 
+
+export async function approveWorkflow(req, res) {
+    const { workflowId } = req.params; // Assuming workflowId is passed in the URL parameters
+
+    try {
+        // Find the workflow by workflowId
+        const workflow = await Workflow.findById(workflowId);
+        if (!workflow) {
+            return res.status(404).json({ message: 'Workflow not found' });
+        }
+
+        // Check if the workflow status is already "Approved"
+        if (workflow.status === 'Approved') {
+            return res.status(400).json({ message: 'Workflow status is already approved' });
+        }
+
+        // Update the workflow status to "Approved"
+        workflow.status = 'Approved';
+        await workflow.save();
+
+        return res.status(200).json({ message: 'Workflow status updated to approved', workflow });
+    } catch (error) {
+        console.error('Error approving workflow:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
 
 export default {
     createWorkflow,
