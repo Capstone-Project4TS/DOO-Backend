@@ -1,6 +1,6 @@
 import UserModel from '../models/users.model.js';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
+import mongoose from 'mongoose';
 import * as EmailService from '../services/emailService.js';
 import * as UserService from '../services/userService.js';
 import otpGenerator from 'otp-generator';
@@ -14,42 +14,55 @@ const collectionName = "users";
 // POST: http://localhost:5000/api/admin/user/create
 export async function createAccounts(req, res) {
     const users = await getUser();
+
     try {
-        // Check if request body contains user data array
         if (!Array.isArray(users) || users.length === 0) {
-            return res.status(400).json({ message: 'Please provide an array of user objects in the request body.' });
+            return { message: 'Please provide users data.' };
         }
 
-        // Loop through each user object in the request body
         const createdUsers = [];
-        const failedUsers = []; // Store failed user creations
+        const updatedUsers = [];
+        const deletedUsers = [];
+
         for (const user of users) {
-            const newUser = await createUser(user); // Call the existing createUser function
-            if (newUser.error) {
-                // If an error occurred, push the user to failedUsers array
-                failedUsers.push({ user, error: newUser.error });
+            const existingUser = await UserModel.findOne({ email: user.email });
+
+            if (existingUser) {
+                // User exists, check for changes
+                if (existingUser.role_id.toString() !== user.role_id.toString()) {
+
+                    // Update user information
+                    await UserModel.updateOne({ email: user.email }, { $set: { role_id: new mongoose.Types.ObjectId(user.role_id) } });
+                    updatedUsers.push(user.email);
+                }
+
 
             } else {
-
-                // If user creation was successful, push the user to createdUsers array
-                createdUsers.push(newUser);
+                // User doesn't exist, create new user
+                const result = await createUser(user);
+                if (!result.error) {
+                    createdUsers.push(user.email);
+                }
             }
         }
 
-        if (failedUsers.length > 0) {
-            // If there are failed user creations, return a 400 status with failed users information
-            return res.status(400).json({ message: 'Some users were not created successfully.', failedUsers });
+
+        // Find users in our DB but not in HR DB and delete them
+        const allHRUsers = users.map(user => user.email);
+        const usersToDelete = await UserModel.find({ email: { $nin: allHRUsers } });
+        for (const userToDelete of usersToDelete) {
+            await UserModel.deleteOne({ email: userToDelete.email });
+            deletedUsers.push(userToDelete.email);
         }
 
-        // If all user creations were successful, return a 201 status with created users information
-        res.status(201).json({ data: createdUsers });
+        return { message: 'Users synchronization completed successfully' };
     } catch (error) {
-        console.error('Error creating users:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('Error synchronizing users:', error);
+        return { message: 'Internal server error' };
     }
 }
 
-// Route to create a new user with email verification
+
 
 export async function createUser(user) {
 
@@ -57,16 +70,6 @@ export async function createUser(user) {
     if (error) return { error: error.details[0].message };
 
     try {
-        // Check if the username is already taken
-        const existingUserEmail = await UserModel.findOne({ email: user.email });
-        if (existingUserEmail) {
-            return { error: 'Email is already taken' };
-        }
-
-        const existingUsername = await UserModel.findOne({ username: user.username });
-        if (existingUsername) {
-            return { error: 'Username is already taken' };
-        }
 
         async function hashPassword(password) {
             const salt = await bcrypt.genSalt(10); // Generate a random salt
@@ -75,24 +78,21 @@ export async function createUser(user) {
         }
         const defaultPassword = await generateDefaultPassword();
         const hashedPassword = await hashPassword(defaultPassword);
-       
-        const verificationToken = crypto.randomBytes(64).toString("hex");
 
         // Create a new user object with verification token
         const newUser = new UserModel({
-            otp:defaultPassword,
-            password:hashedPassword, // Consider hashing the password before saving it
+            otp: defaultPassword,
+            password: hashedPassword, // Consider hashing the password before saving it
             email: user.email,
-            role_id: user.role_id,
+            role_id: new mongoose.Types.ObjectId(user.role_id),
             username: user.username,
-            emailToken: verificationToken,
         });
-        
+
         // Save the user to the database
         await newUser.save();
 
         // Return the newly created user
-        return { message: 'User account created successfully' };
+        return newUser;
     } catch (error) {
         console.error('Error creating user:', error);
         return { error: 'Internal server error' };
@@ -122,21 +122,33 @@ export async function getUser(req, res) {
         return sanitizedUsers; // Send user data to the client
     } catch (error) {
         console.error('Error occurred while fetching user information:', error);
-        return res.status(500).send({ error: "Internal Server Error" });
+        return { error: "Internal Server Error" };
     } finally {
         // Close the connection
         await client.close();
     }
 }
 
+export async function getAllUsers(req, res) {
+    try {
+        const users = await UserModel.find({});
+        if (!users || users.length === 0) {
+            return res.status(404).json({ message: 'No users found' });
+        }
+        return res.status(200).json({ users });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+}
 
 /** POST: http://localhost:5000/api/generateOTP */
 export async function generateOTP(req, res) {
-    const {email} = req.body;
+    const { email } = req.body;
     const user = await UserModel.findOne({ email });
     req.app.locals.OTP = otpGenerator.generate(6, { lowerCaseAlphabets: false, upperCaseAlphabets: false, specialChars: false })
-    
-    const sendingOtp = await EmailService.sendVerificationEmail(user.email,user.username,req.app.locals.OTP );
+
+    const sendingOtp = await EmailService.sendPasswordResetCode(user.email, user.username, req.app.locals.OTP);
     await EmailService.sendEmail(sendingOtp);
 
     res.status(201).send({ msg: "A reset password code is sent to your email!" })
@@ -170,9 +182,9 @@ export async function resetPassword(req, res) {
             return res.status(440).send({ error: "Session expired!" });
         }
 
-        const {  password } = req.body;
+        const { password } = req.body;
 
-        const user = await UserModel.findOne({ _id: id.userId  });
+        const user = await UserModel.findOne({ _id: id.userId });
 
         if (!user) {
             return res.status(404).send({ error: "Username not Found" });
@@ -228,13 +240,30 @@ export async function changePassword(req, res) {
 // Endpoint to send invitations
 export async function sendInvitations(req, res) {
     try {
-        
-        const selectedRoles = req.body.selectedRoles; // Assuming you pass selected roles in the request body
-       // Validate that selectedRoles is an array of valid ObjectId(s)
-        if (!Array.isArray(selectedRoles) || selectedRoles.some(id => typeof id !== 'string')) {
-            return res.status(400).json({ success: false, message: "Invalid selected roles." });
+
+        let users = [];
+        if (req.body.selectedRoles) {
+            // Role-based filtering
+            const selectedRoles = req.body.selectedRoles;
+            // Validate selectedRoles
+            if (!Array.isArray(selectedRoles) || selectedRoles.some(id => !mongoose.Types.ObjectId.isValid(id))) {
+                return res.status(400).json({ success: false, message: "Invalid selected roles." });
+            }
+            // Get users based on selected roles
+            users = await getUsersByRoles(selectedRoles);
+        } else if (req.body.selectedUsers) {
+            // Individual user selection
+            const selectedUsers = req.body.selectedUsers;
+            // Validate selectedUsers
+            if (!Array.isArray(selectedUsers) || selectedUsers.some(user => typeof user !== 'string')) {
+                return res.status(400).json({ success: false, message: "Invalid selected users." });
+            }
+            // Get users based on usernames or emails
+            users = await getUsersByUsernameOrEmail(selectedUsers);
+        } else {
+            // Invalid request
+            return res.status(400).json({ success: false, message: "Invalid request. Please provide selectedRoles or selectedUsers." });
         }
-        const users = await getUsersByRoles(selectedRoles);
         const result = await sendInvitation(users);
         return res.status(200).json(result);
     } catch (error) {
@@ -247,12 +276,12 @@ export async function sendInvitation(users) {
     try {
         for (const user of users) {
 
-            const email = await EmailService.sendVerificationEmail(user.email,user.username,user.otp);
+            const email = await EmailService.sendInvitation(user.email, user.username, user.otp);
             await EmailService.sendEmail(email);
 
             // Update account creation status to "Sent" after sending the invitation
             await UserService.updateAccountCreationStatus(user._id);
-           
+
         }
 
 
@@ -273,6 +302,64 @@ export async function getUsersByRoles(selectedRoles) {
         throw error;
     }
 };
+
+export async function getUsersByUsernameOrEmail(selectedUsers) {
+    try {
+        // Query the database to find users based on usernames or emails
+        const users = await UserModel.find({
+            $or: [
+                { username: { $in: selectedUsers } },
+                { email: { $in: selectedUsers } }
+            ]
+        });
+        return users;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export async function resendInvitationEmail(req, res) {
+    try {
+        const identifier = req.body.identifier; // Username or email of the user requesting the resend
+        // Validate identifier
+        if (!identifier || typeof identifier !== 'string') {
+            return res.status(400).json({ success: false, message: "Invalid identifier." });
+        }
+       
+        // Find the user based on the identifier
+        const user = await findUserByIdentifier(identifier);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        const email = await EmailService.sendInvitation(user.email, user.username, user.otp);
+        await EmailService.sendEmail(email);
+
+        // Update account creation status to "Sent" after sending the invitation
+        await UserService.updateAccountCreationStatus(user._id);
+
+        return res.status(200).json({ success: true, message: "Invitation email resent successfully." });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: "Internal server error." });
+    }
+}
+
+async function findUserByIdentifier(identifier) {
+    try {
+        // Query the database to find the user based on username or email
+        const user = await UserModel.findOne({
+            $or: [
+                { username: identifier },
+                { email: identifier }
+            ]
+        });
+        return user;
+    } catch (error) {
+        throw error;
+    }
+}
+
 
 // Function to generate a default password
 async function generateDefaultPassword() {
@@ -334,7 +421,7 @@ export async function activateAccount(req, res) {
 }
 
 // filter users
-export async function filterUsersByRoleAndStatus(role, status,accountCreationStatus,activationStatus) {
+export async function filterUsersByRoleAndStatus(role, status, accountCreationStatus, activationStatus) {
     try {
         // Construct base query
         let query = {};

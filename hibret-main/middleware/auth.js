@@ -12,9 +12,9 @@ export default async function Auth(req, res, next){
         const decodedToken =  jwt.verify(token, process.env.JWT_SECRET);
 
         req.user = decodedToken;
-        console.log(decodedToken)
         next()
 
+        
     } catch (error) {
       
         res.status(401).json({ error : "Authentication Failed!"})
