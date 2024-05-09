@@ -16,9 +16,10 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import session from "express-session";
 import passport from "passport";
-import  initPassportJS from "./startup/passport.js";
-import  initCORS  from "./startup/cors.js";
+import initPassportJS from "./startup/passport.js";
+import initCORS from "./startup/cors.js";
 import MongoStore from 'connect-mongo';
+import startCronJob from './startup/dataBaseUpdater.js';
 
 const app = express();
 /** middlewares */
@@ -39,40 +40,44 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   rolling: true,
-  store:  MongoStore.create({ 
+  store: MongoStore.create({
     mongoUrl: process.env.ATLAS_URI, // MongoDB connection URL
     collectionName: 'sessions', // Name of the collection to store sessions
     ttl: 60 * 60, // Session expiration time in seconds (e.g., 1 day)
   }),
   cookie: {
-      maxAge: 3600000, // Session expiry time (in milliseconds), e.g., 1 hour
-      httpOnly: true, // Cookie accessible only through HTTP(S) requests, not client-side scripts
-      secure: false,
-    }
+    maxAge: 3600000, // Session expiry time (in milliseconds), e.g., 1 hour
+    httpOnly: true, // Cookie accessible only through HTTP(S) requests, not client-side scripts
+    secure: false,
+  }
 }));
 
-  app.use(passport.session());
+app.use(passport.session());
+
+// Start the cron job
+startCronJob();
+
 /** start server only when we have valid connection */
 connect().then(() => {
-    try {
-        app.listen(process.env.PORT, () => {
-            console.log(`Server connected to http://localhost:${process.env.PORT}`);  
+  try {
+    app.listen(process.env.PORT, () => {
+      console.log(`Server connected to http://localhost:${process.env.PORT}`);
 
-        })
-    } catch (error) {
-        console.log('Cannot connect to the server')
-       
-    }
+    })
+  } catch (error) {
+    console.log('Cannot connect to the server')
+
+  }
 }).catch(error => {
-    console.log("Invalid database connection...!");
-    console.log(process.env.ATLAS_URI)
+  console.log("Invalid database connection...!");
+  console.log(process.env.ATLAS_URI)
 
 })
 
 /** api routes */
 app.use('/api', router)
 app.use('/documents', documentRoutes);
-app.use('/admin', workflowTemplateRoutes,documentCategoryRoutes,subCategoryRoutes, 
-                  documentTemplateRoutes,roleRoutes,workflowRoutes, userWorkflow)
+app.use('/admin', workflowTemplateRoutes, documentCategoryRoutes, subCategoryRoutes,
+  documentTemplateRoutes, roleRoutes, workflowRoutes, userWorkflow)
 app.use('/folder', folderRoutes)
 app.use('/workflow', userWorkflow)
