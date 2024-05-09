@@ -8,12 +8,24 @@ const dbName = "HR";
 const collectionName = "Role";
 
 
-export async function getAllRoles(req, res) {
+export async function updateAllRoles(req, res) {
     try {
         const Roles = await getRoles();
         await updateRoles(Roles);
         await deleteRoles(Roles);
+       return {message: 'Roles synchronization completed successfully'}
+    } catch (error) {
+        console.error('Error fetching roles:', error);
+        return { error: 'Internal server error' };
+    }
+}
+
+export async function getAllRoles(req, res) {
+    try {
         const roles = await RoleModel.find({});
+        if (!roles || roles.length === 0) {
+            return res.status(404).json({ message: 'No roles found' });
+        }
         res.status(200).json(roles);
     } catch (error) {
         console.error('Error fetching roles:', error);
