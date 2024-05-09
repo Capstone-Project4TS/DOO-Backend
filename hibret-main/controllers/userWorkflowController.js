@@ -11,7 +11,6 @@ export async function createUserWorkflow(req, res) {
       throw new Error('User not found');
     }
 
-
     // Check if the workflow exists
     const workflow = await Workflow.findById(workflowId);
     if (!workflow) {
@@ -60,7 +59,7 @@ export async function activateWorkflowForUser (userId, workflowId){
   }
 };
 
-export async function getUserWorkflows(req, tes) {
+export async function getUserWorkflows(req, res) {
   try {
     const { userId } = req.params;
     const userWorkflows = await UserWorkflow.find({ userId }).populate('workflows.workflowId');
