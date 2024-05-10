@@ -92,6 +92,10 @@ const workflowTemplateSchema = new mongoose.Schema({
         }]
     }],
 
+    additionalDoc: {  
+        type: Boolean,
+        default: false,
+      },
     requiredDocumentTemplates: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'DocumentTemplate' // Reference to the DocumentTemplate model

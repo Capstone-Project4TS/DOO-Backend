@@ -1,12 +1,8 @@
-// documentController.js
 import multer from 'multer';
 import Document from '../models/document.model.js'
 import upload from '../config/multerConfig.js'
-import { createWriteStream } from 'fs';
-import { createPdf } from 'pdfmake/build/pdfmake.js';
-import pkg from 'pdfmake/build/vfs_fonts.js';
-const { vfs } = pkg;
-
+import { PDFDocument, rgb } from 'pdf-lib';
+import mongoose from 'mongoose';
 
 
 const createDocument = async (req, res) => {
@@ -18,7 +14,7 @@ const createDocument = async (req, res) => {
       }
 
       // Extract common document data
-      const {  eId, title, creationMethod, ownerId, workflowId, repositoryId, folderId, templateId } = req.body;
+      const { title, creationMethod, ownerId, workflowId, repositoryId, folderId } = req.body;
 
       // Extract uploaded files
       const files = req.files || [];
@@ -26,14 +22,13 @@ const createDocument = async (req, res) => {
       // Save each file as a separate document instance
       const savedDocuments = await Promise.all(files.map(async file => {
         const newDocument = new Document({
-          documentTypeId,
+
           title,
           creationMethod,
           ownerId,
           workflowId,
           repositoryId,
           folderId,
-          templateId,
           filename: file.originalname,
           filePath: file.path
         });
@@ -48,7 +43,6 @@ const createDocument = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 
 // Controller function to get all documents
@@ -147,21 +141,29 @@ const deleteDocumentById = async (req, res) => {
 
 
 // Controller function to create a new document from a blank page
+
 export const createDocumentFromBlank = async (req, res) => {
   try {
-    const { documentTypeId, title, ownerId, workflowId, repositoryId, folderId, templateId, content } = req.body;
+    const { title, ownerId, workflowId, repositoryId, folderId, content } = req.body;
+
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
+    page.drawText(content || '', { x: 50, y: 500 });
+
+    // Convert the PDF document to base64
+    const pdfBytes = await pdfDoc.save();
+    const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
     // Create a new document with the provided data
     const newDocument = new Document({
-      documentTypeId,
       title,
       ownerId,
       workflowId,
       repositoryId,
       folderId,
-      templateId,
-      content, // Assuming content is a field in your Document model to store the document content
-      creationMethod: 'blankPage', // Set the creation method to indicate it's from a blank page
+      pdfBase64, // Store the PDF content as base64
+      creationMethod: 'blankPage',
     });
 
     // Save the new document to the database
@@ -176,82 +178,116 @@ export const createDocumentFromBlank = async (req, res) => {
 };
 
 
-export async function generatePdfFromDocumentData(documentsData) {
+export async function getPdfDocument(req, res) {
   try {
-      const generatedDocuments = []; // Array to store generated documents
-      
-      // Iterate over each document data object
-      for (const documentData of documentsData) {
-          const { title, name, sections, documentTemplate } = documentData;
+    // Retrieve document id from request parameters
+    const { id } = req.params;
 
-          // Define a PDF document definition
-          const documentDefinition = {
-              content: []
-          };
+    // Check if the provided ID is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid document ID' });
+    }
 
-          // Add document name and description as title
-          documentDefinition.content.push({ text: title, style: 'title' });
-          documentDefinition.content.push({ text: name, style: 'name' });
+    // Fetch the document from the database based on the documentId
+    const document = await Document.findById(id);
 
-          // Iterate over each section in the document
-          sections.forEach(section => {
-              // Add section header
-              documentDefinition.content.push({ text: section.title, style: 'header' });
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
 
-              // Add section content based on section data type
-              switch (section.type) {
-                  case 'text':
-                      // Add text input field
-                      documentDefinition.content.push({ text: content.value }); // Replace with actual input value
-                      break;
-                  case 'number':
-                      // Add number input field
-                      documentDefinition.content.push({ text: content.value }); // Replace with actual input value
-                      break;
-                  // Add cases for other data types as needed
-              }
-          });
+  
+    const  pdfBytes = Buffer.from(document.pdfBase64, 'base64');
 
-          // Create PDF
-          const pdf = createPdf(documentDefinition, null, vfs);
-
-          // Convert PDF buffer to Base64 string
-          const pdfBase64 = pdf.toString('base64');
-
-          // Save PDF in the database
-          const newDocument = new Document({
-              title,
-              name,
-              pdfBase64,
-              sections,
-              templateId: documentTemplate // Pair document with document template
-          });
-          await newDocument.save();
-
-          // Add document to the array of generated documents
-          generatedDocuments.push({
-            documentTemplate: documentTemplate,
-            data: newDocument
-            
-        });
-         
-      }
-
-      return generatedDocuments;
+    // Send the decoded content as a response
+    res.setHeader('Content-Disposition', `attachment; filename="${document.filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    return res.send(pdfBytes);
+    // Send the PDF Base64 string to the frontend
+    // return res.status(200).json({ pdfBase64: document.pdfBase64 });
   } catch (error) {
-      console.error('Error generating PDFs:', error);
-      throw new Error('Failed to generate PDFs');
+    console.error('Error fetching document:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
 
 
-export default 
-{
-     createDocument, 
-     getAllDocuments, 
-     getDocumentById, 
-     getDocumentsByFilter, 
-     deleteDocumentById,
-     createDocumentFromBlank,
-     generatePdfFromDocumentData
- };
+export async function generatePdfFromDocumentData(documentsData) {
+  try {
+    const generatedDocuments = []; // Array to store generated documents
+
+    // Iterate over each document data object
+    for (const documentData of documentsData) {
+      const { title, ownerId, workflowId, repositoryId, folderId, templateId, sections } = documentData;
+
+      // Create a new PDF document
+      const pdfDoc = await PDFDocument.create();
+
+      // Add a page to the document
+      const page = pdfDoc.addPage();
+
+      // Set document title as heading
+      page.drawText(title, { x: 50, y: 750, size: 24, color: rgb(0, 0, 0) });
+
+      let yOffset = 700;
+
+      // Iterate over each section in the document
+      for (const section of sections) {
+        // Add section title
+        yOffset -= 20;
+        page.drawText(section.title, { x: 50, y: yOffset, size: 18, color: rgb(0, 0, 0) });
+        yOffset -= 30;
+
+        // Iterate over content in the section
+        for (const contentItem of section.content) {
+          // Add content based on type
+          yOffset -= 15;
+          const fieldText = `${contentItem.title}: ${contentItem.value}`;
+          page.drawText(fieldText, { x: 50, y: yOffset, size: 12, color: rgb(0, 0, 0) });
+          yOffset -= 20;
+        }
+      }
+
+      // Serialize PDF document to bytes
+      const pdfBytes = await pdfDoc.save();
+
+      // Convert PDF buffer to Base64 string
+      const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
+
+      // Save PDF in the database along with document data
+      const newDocument = new Document({
+        title,
+        ownerId,
+        workflowId,
+        repositoryId,
+        folderId,
+        templateId,
+        pdfBase64,
+        sections, // Store the sections data along with the document
+        creationMethod: 'template',
+      });
+
+      await newDocument.save();
+
+      // Add document to the array of generated documents
+      generatedDocuments.push(newDocument);
+    }
+
+    return generatedDocuments;
+  } catch (error) {
+    console.error('Error generating PDFs:', error);
+    throw new Error('Failed to generate PDFs');
+  }
+}
+
+
+export default
+  {
+    createDocument,
+    getAllDocuments,
+    getDocumentById,
+    getDocumentsByFilter,
+    deleteDocumentById,
+    createDocumentFromBlank,
+    generatePdfFromDocumentData,
+    getPdfDocument,
+  };
