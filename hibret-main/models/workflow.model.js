@@ -12,7 +12,7 @@ const WorkflowSchema = new Schema({
         required: true
     },
     documents: [{
-        documentTemplate: {
+        templateId: {
             type: Schema.Types.ObjectId,
             ref: 'DocumentTemplate',
             required: true
