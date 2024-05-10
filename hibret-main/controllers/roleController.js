@@ -115,7 +115,7 @@ export async function getRoles(req, res) {
         return sanitizedRoles; // Send role data to the client
     } catch (error) {
         console.error('Error occurred while fetching role information:', error);
-        return res.status(500).send({ error: "Internal Server Error" });
+        return { error: "Internal Server Error" };
     } finally {
         // Close the connection
         await client.close();
@@ -132,7 +132,7 @@ export async function getDeps(req, res){
 
         const deps = await collection.find({}).toArray();
 
-        if (!deps || deps.length === 0) return res.status(404).send({ error: "No deps found" });
+        if (!deps || deps.length === 0) return { error: "No deps found" };
 
         const sanitizedDeps = deps.map(dep => {
             const { _id, name } = dep; // Extract only desired fields
@@ -142,12 +142,13 @@ export async function getDeps(req, res){
         return sanitizedDeps; // Send dep data to the client
     } catch (error) {
         console.error('Error occurred while fetching role information:', error);
-        return res.status(500).send({ error: "Internal Server Error" });
+        return { error: "Internal Server Error" };
     } finally {
         // Close the connection
         await client.close();
     }
 }
+
 
 
 export async function getRoleById(req, res) {
