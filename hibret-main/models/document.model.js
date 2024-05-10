@@ -3,19 +3,11 @@ import mongoose from 'mongoose';
 // Define the document schema
 const documentSchema = new mongoose.Schema({
   _id: { type: mongoose.Schema.Types.ObjectId, required: true, auto: true },
-  documentTypeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'DocumentType',
-    // required: true
-  },
   title: {
     type: String,
     // required: true
   },
-  content: {
-    type: String, // Assuming content is stored as a string for documents created from a blank page
-    required: false // This field is not required for documents created through uploading or from a template
-  },
+
   filePath: {
     type: String,
     required: false // This field is required for documents created through uploading

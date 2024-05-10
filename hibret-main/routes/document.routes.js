@@ -8,12 +8,16 @@ const { createDocument,
    getDocumentsByFilter,
    deleteDocumentById,
    createDocumentFromBlank,
-   generatePdfFromDocumentData } = documentController;
+   generatePdfFromDocumentData ,
+   getPdfDocument,
+} = documentController;
 
 //GET
 router.get('/', getAllDocuments);
 router.get('/filter', getDocumentsByFilter)
 router.get('/:id', getDocumentById);
+router.get('/retrieve/:id', getPdfDocument);
+
 
 //POST
 router.post('/upload', createDocument);
