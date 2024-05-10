@@ -2,13 +2,10 @@ import { Schema, model } from 'mongoose';
 
 const documentTemplateSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true, auto: true },
-  name: {
+  title: {
     type: String,
     required: true,
     unique: true // Ensure unique names
-  },
-  description: {
-    type: String // Consider using a rich text type if needed
   },
   subCategoryId: {
     type: Schema.Types.ObjectId,
