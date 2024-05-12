@@ -1,4 +1,4 @@
-import { Schema, model, mongoose } from 'mongoose';
+import {  model, mongoose } from 'mongoose';
 
 const workflowTemplateSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, required: true, auto: true },
@@ -30,7 +30,7 @@ const workflowTemplateSchema = new mongoose.Schema({
         approverType: {
             type: String,
             enum: ['Single Person', 'Committee'],
-            required: true
+            // required: true
         },
         committee_permissions: {
              permission: {
@@ -52,7 +52,7 @@ const workflowTemplateSchema = new mongoose.Schema({
             permission: {
                 type: String,
                 enum: ['approve', 'review'], // Define enum values
-                required: true
+                // required: true
             },
         },// Conditional, if reviewer_type is "single"
         // Additional properties for variant condition values (if applicable)
@@ -69,11 +69,11 @@ const workflowTemplateSchema = new mongoose.Schema({
                 permission: {
                     type: String,
                     enum: ['approve', 'review'], // Define enum values
-                    required: true
+                    // required: true
                 },
                 role_ids: [{
                     type: mongoose.Schema.Types.ObjectId,
-                    ref: 'Role'
+                    ref: 'Committee'
                 }],
                 min_approvals: Number // Only for approval permission
             }, // Conditional, if reviewer_type is "Committee"
@@ -85,7 +85,7 @@ const workflowTemplateSchema = new mongoose.Schema({
                 permission: {
                     type: String,
                     enum: ['approve', 'review'], // Define enum values
-                    required: true
+                    // required: true
                 },
             }, // Conditional, if reviewer_type is "single"
             

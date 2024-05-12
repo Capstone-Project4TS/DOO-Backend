@@ -19,23 +19,18 @@ export const createWorkflowTemplate = async (req, res) => {
 
     // Validate stages
     stages.forEach(stage => {
-      if (!stage.stageTitle || !['Single Person', 'Committee'].includes(stage.approverType)) {
-        throw new Error('Invalid stage data: Missing required properties or invalid approver type');
+
+      if (!stage.stageTitle || typeof stage.stageTitle !== 'string') {
+        throw new Error('Invalid stage data: Missing or invalid stage title');
       }
+    
 
       // Validate condition
       if (stage.hasCondition) {
         if (!stage.condition) {
           throw new Error('Condition required when hasCondition is true');
-        }
-        // Add validation for condition structure (if needed)
-      } else {
-        if (stage.condition || stage.conditionVariants?.length) {
-          throw new Error('Condition and conditionVariants should be empty when hasCondition is false');
-        }
-      }
-
-      // Validate condition variants (if present)
+        }else{
+            // Validate condition variants (if present)
       if (stage.conditionVariants && stage.conditionVariants.length) {
         if (!stage.hasCondition) {
           throw new Error('conditionVariants require hasCondition to be true');
@@ -44,9 +39,25 @@ export const createWorkflowTemplate = async (req, res) => {
           if (!variant.condition_name || !variant.operator || !variant.value || !(typeof variant.value === 'number' || typeof variant.value === 'string')) {
             throw new Error('Invalid condition variant: Missing required properties or invalid value format');
           }
-        });
+         // Validate approverType within conditionVariants
+         if (!variant.approverType || !['Single Person', 'Committee'].includes(variant.approverType)) {
+          throw new Error('Invalid condition variant: Missing or invalid approver type');
+        }
+      });
+    }
+        }
+        
+        // Add validation for condition structure (if needed)
+      } else {
+        if (stage.condition || stage.conditionVariants?.length) {
+          throw new Error('Condition and conditionVariants should be empty when hasCondition is false');
+        }
+        if ( !['Single Person', 'Committee'].includes(stage.approverType)) {
+          throw new Error('Invalid stage data: Missing required properties or invalid approver type');
+        }
       }
 
+  
       // Add validation for roles in permissions and specific condition types (if needed)
       // ... (your additional validation logic here)
     });
