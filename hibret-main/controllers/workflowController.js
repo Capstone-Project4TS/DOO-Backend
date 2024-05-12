@@ -53,7 +53,7 @@ export async function createWorkflow(req, res) {
 
         // Update or create user workflow entry
         const userWorkflow = await UserWorkflow.findOneAndUpdate(
-            { userId: { $in: assignedUsers.map(user => user.user_id) } },
+            { userId: { $in: assignedUsers.map(user => user.user) } },
             { $set: { workflows: assignedUsers.map(user => ({ workflowId: savedWorkflow._id, isActive: user.stageIndex === newWorkflow.currentStageIndex })) } },
             { upsert: true, new: true }
         );
@@ -146,10 +146,38 @@ function evaluateCondition(variant, conditionValue) {
 }
 
 // Function to select single user based on role and workload
-async function selectSingleUser(roleId) {
-    // Query UserWorkflow collection to find user(s) with least workload for the specified role
-    // Logic to select user(s) with least workload
-    // Return the selected user(s)
+async function selectSingleUser(role_id) {
+    try {
+        // Find users with the given role_id
+        const users = await User.find({ role_id });
+
+        // Array to store workload details of each user
+        const workloadDetails = [];
+
+        // Iterate through users
+        for (const user of users) {
+            // Find the user's entry in the UserWorkflow collection
+            const userWorkflow = await UserWorkflow.findOne({ userId: user._id });
+
+            // If userWorkflow is found, count the number of workflows
+            let workflowCount = 0;
+            if (userWorkflow) {
+                workflowCount = userWorkflow.workflows.length;
+            }
+
+            // Push workload details to array
+            workloadDetails.push({ userId: user._id, workflowCount });
+        }
+
+        // Sort users based on workload (ascending order)
+        workloadDetails.sort((a, b) => a.workflowCount - b.workflowCount);
+
+        // Return the user ID with the least workload
+        return workloadDetails[0].userId;
+    } catch (error) {
+        console.error("Error finding user with least workload:", error);
+        throw error; // Throw error for handling at higher level
+    }
 }
 
 // Function to select committee members based on roles and workload
