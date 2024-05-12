@@ -18,15 +18,23 @@ export async function createWorkflow(req, res) {
         // Extract stage information
         const stages = workflowTemplate.stages;
 
-        // Find users for each role and assign to stages
+        // Assign users to stages based on conditions or without conditions
         const assignedUsers = [];
         for (const [index, stage] of stages.entries()) {
-            const roleId = stage.single_permissions.role_id;
-            const user = await User.findOne({ roles: roleId });
-            if (user) {
-                assignedUsers.push({ user: user._id, stageIndex: index });
+            let assignedUser;
+            if (stage.hasCondition) {
+                console.log(data)
+                // Evaluate condition and select appropriate user(s)
+                assignedUser = await assignUserWithCondition(stage,data);
+                console.log(assignedUser)
+            } else {
+                // Select user with least workload for the role
+                assignedUser = await assignUserWithoutCondition(stage);
             }
+            assignedUsers.push({ user: assignedUser, stageIndex: index });
         }
+
+        console.log(assignedUsers)
         // Create workflow instance
         const newWorkflow = new Workflow({
             workflowTemplate: workflowTemplateId,
@@ -45,7 +53,7 @@ export async function createWorkflow(req, res) {
 
         // Update or create user workflow entry
         const userWorkflow = await UserWorkflow.findOneAndUpdate(
-            { userId: { $in: assignedUsers.map(user => user.user) } },
+            { userId: { $in: assignedUsers.map(user => user.user_id) } },
             { $set: { workflows: assignedUsers.map(user => ({ workflowId: savedWorkflow._id, isActive: user.stageIndex === newWorkflow.currentStageIndex })) } },
             { upsert: true, new: true }
         );
@@ -56,6 +64,110 @@ export async function createWorkflow(req, res) {
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
+
+// Helper function to assign user to a stage with condition
+async function assignUserWithCondition(stage, documentData) {
+    // Extract the condition field and its value from the stage
+    console.log(documentData)
+    const conditionFieldName = stage.condition;
+    console.log(conditionFieldName)
+    const conditionValue = extractConditionValue(conditionFieldName, documentData);
+    console.log(conditionValue)
+    
+    // Initialize an array to store potential users for approval
+    let potentialApprovers = [];
+
+    // Check if the stage has condition variants
+    if (stage.conditionVariants && stage.conditionVariants.length > 0) {
+        // Iterate over each condition variant
+        for (const variant of stage.conditionVariants) {
+            // Evaluate the condition variant
+            const conditionMatched = evaluateCondition(variant, conditionValue);
+            console.log(conditionMatched)
+            // If the condition variant is matched
+            if (conditionMatched) {
+                // Select approver(s) based on the condition variant
+                if (variant.approverType === 'Single Person') {
+                    console.log('true')
+                    console.log(variant.single_permissions.role_id);
+                    // Select single user based on role and workload
+                    potentialApprovers = await selectSingleUser(variant.single_permissions.role_id);
+                    
+                } else if (variant.approverType === 'Committee') {
+                    console.log('true')
+                    // Select committee members based on roles and workload
+                    potentialApprovers = await selectCommitteeMembers(variant.committee_permissions.role_ids);
+                }
+                // Break the loop after finding the matched condition variant
+                break;
+            }
+        }
+    }
+
+    // Return the selected user(s)
+    return potentialApprovers;
+}
+
+// Function to extract condition value from document data
+function extractConditionValue(fieldName, documentData) {
+    // Iterate through documentData to find the field matching fieldName and return its value
+    for (const data of documentData) {
+        for (const section of data.sections) {
+            // Find the content with the given fieldName
+            const content = section.content.find(field => field.title === fieldName);
+            if (content && content.value !== undefined) {
+                // If content is found, return its value
+                return content.value;
+            }
+        }
+    }
+
+    // If fieldName is not found, return null
+    return null;
+}
+
+
+// Function to evaluate condition variant
+function evaluateCondition(variant, conditionValue) {
+    // Logic to evaluate condition based on condition value and variant value
+    // For example, you might compare the condition value with the variant value using the operator
+    switch (variant.operator) {
+        case '>':
+            return conditionValue > variant.value;
+        case '<':
+            return conditionValue < variant.value;
+        case '>=':
+            return conditionValue >= variant.value;
+        case '<=':
+            return conditionValue <= variant.value;
+        default:
+            return false;
+    }
+}
+
+// Function to select single user based on role and workload
+async function selectSingleUser(roleId) {
+    // Query UserWorkflow collection to find user(s) with least workload for the specified role
+    // Logic to select user(s) with least workload
+    // Return the selected user(s)
+}
+
+// Function to select committee members based on roles and workload
+async function selectCommitteeMembers(roleIds) {
+    // Query UserWorkflow collection to find committee members with least workload for the specified roles
+    // Logic to select committee members with least workload
+    // Return the selected committee members
+}
+
+
+
+// Helper function to assign user to a stage without condition
+async function assignUserWithoutCondition(stage) {
+    // Select user with least workload for the role
+    // Logic to select user with least workload for the role
+    // Return the selected user
+}
+
 
 // Controller function to fetch all workflow instances
 export const getAllWorkflows = async (req, res) => {

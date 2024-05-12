@@ -3,12 +3,13 @@ import DocumentTemplate from '../models/documentTemplate.model.js';
 // Create a new document template
 export async function createDocumentTemplate(req, res) {
     try {
-        const { name, description, subCategoryId, sections, conditionLogic } = req.body;
+        const { title, subCategoryId, sections, conditionLogic } = req.body;
 
        
         // Initialize an empty array to store eligible conditions
         let eligibleConditions = [];
 
+    
         // Iterate over each section to check for conditional logic
         sections.forEach(section => {
             // Iterate over each content in the section
@@ -24,10 +25,10 @@ export async function createDocumentTemplate(req, res) {
             });
         });
 
+       
 
         const newTemplate = new DocumentTemplate({
-            name,
-            description,
+            title,
             subCategoryId,
             sections,
             conditionLogic,

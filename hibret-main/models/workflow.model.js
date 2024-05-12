@@ -17,9 +17,8 @@ const WorkflowSchema = new Schema({
             ref: 'DocumentTemplate',
             required: true
         },
-        data: {
-            type: Schema.Types.Mixed
-        },
+        type: Schema.Types.ObjectId,
+        ref: 'Document',
         
     },
     {
@@ -31,12 +30,8 @@ const WorkflowSchema = new Schema({
             type: String,
             required: true
         },
-        content: {
-            type: String // or Buffer for file content
-        },
-        file: {
-            type: String // Store file metadata or file paths
-        }
+        type: Schema.Types.ObjectId,
+        ref: 'Document',
     }],
     currentStageIndex: {
         type: Number,

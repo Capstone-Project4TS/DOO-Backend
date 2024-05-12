@@ -3,6 +3,7 @@ import Document from '../models/document.model.js'
 import upload from '../config/multerConfig.js'
 import { PDFDocument, rgb } from 'pdf-lib';
 import mongoose from 'mongoose';
+import fs from 'fs';
 
 
 const createDocument = async (req, res) => {
@@ -14,7 +15,7 @@ const createDocument = async (req, res) => {
       }
 
       // Extract common document data
-      const { title, creationMethod, ownerId, workflowId, repositoryId, folderId } = req.body;
+      const { title, ownerId, workflowId, repositoryId, folderId } = req.body;
 
       // Extract uploaded files
       const files = req.files || [];
@@ -24,7 +25,7 @@ const createDocument = async (req, res) => {
         const newDocument = new Document({
 
           title,
-          creationMethod,
+          creationMethod:'fileUpload',
           ownerId,
           workflowId,
           repositoryId,
@@ -210,7 +211,31 @@ export async function getPdfDocument(req, res) {
   }
 }
 
+export async function getUploadedDoc(req, res){
+  try {
+    const { id } = req.params;
 
+    // Find the file by ID in the database
+    const document = await Document.findById(id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // For simplicity, assuming the file is stored in the file system
+    fs.readFile(document.filePath, (err, data) => {
+      if (err) {
+        console.error('Error reading file:', err);
+        return res.status(500).json({ error: 'Failed to read file' });
+      }
+      // Send the file data to the frontend
+      res.status(200).json({ fileData: data });
+    });
+  } catch (error) {
+    console.error('Error retrieving file:', error);
+    return res.status(500).json({ error: 'Failed to retrieve file' });
+  }
+}
 export async function generatePdfFromDocumentData(documentsData) {
   try {
     const generatedDocuments = []; // Array to store generated documents
@@ -282,6 +307,7 @@ export async function generatePdfFromDocumentData(documentsData) {
 
 export default
   {
+    getUploadedDoc,
     createDocument,
     getAllDocuments,
     getDocumentById,

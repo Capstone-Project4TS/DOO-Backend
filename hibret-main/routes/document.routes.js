@@ -10,6 +10,7 @@ const { createDocument,
    createDocumentFromBlank,
    generatePdfFromDocumentData ,
    getPdfDocument,
+   getUploadedDoc,
 } = documentController;
 
 //GET
@@ -17,6 +18,7 @@ router.get('/', getAllDocuments);
 router.get('/filter', getDocumentsByFilter)
 router.get('/:id', getDocumentById);
 router.get('/retrieve/:id', getPdfDocument);
+router.get('/getUpload/:id', getUploadedDoc);
 
 
 //POST

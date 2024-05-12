@@ -12,6 +12,7 @@ const documentTemplateSchema = new Schema({
     ref: 'SubCategory',
     // optional: true (if applicable)
   },
+
   sections: [{
     title: {
       type: String,
@@ -25,11 +26,28 @@ const documentTemplateSchema = new Schema({
         },
         type: {
         type: String,
-        enum: ['text', 'number', 'date', 'boolean','upload','select'],
+        enum: ['text', 'textarea','number', 'date', 'boolean','upload','select'],
         required: true
       },
  
-      options: [String], 
+      value: Schema.Types.Mixed, // Adding a value field
+      // Define options field only for select type
+      options: {
+        type: [String], // Array of strings
+        validate: {
+          validator: function() {
+            // Validate options field only if type is select
+            return this.type === 'select' ? Array.isArray(this.options) && this.options.length > 0 : true;
+          },
+          message: 'Options are required for select type'
+        },
+        default:undefined,
+      },
+      // Define upload field specific to the upload type
+      upload: {
+        type: String, // Assuming you store file path as string
+        required: function() { return this.type === 'upload'; }, // Require upload field only for upload type
+    },
       
       // Additional fields for complex sections (optional)
       isRequired: {

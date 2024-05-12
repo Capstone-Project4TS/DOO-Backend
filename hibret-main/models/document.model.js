@@ -20,10 +20,6 @@ const documentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  workflowId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Workflow'
-  },
   repositoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Repository',
