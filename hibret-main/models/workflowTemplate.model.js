@@ -38,10 +38,10 @@ const workflowTemplateSchema = new mongoose.Schema({
                 enum: ['approve', 'review'], // Define enum values
 
             },
-            role_ids: [{
+            role_ids: {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: 'Role'
-            }],
+                ref: 'Committee'
+            },
             min_approvals: Number // Only for approval permission
         }, // Conditional, if reviewer_type is "Committee"
         single_permissions: {
@@ -71,10 +71,10 @@ const workflowTemplateSchema = new mongoose.Schema({
                     enum: ['approve', 'review'], // Define enum values
                     // required: true
                 },
-                role_ids: [{
+                role_ids: {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: 'Committee'
-                }],
+                },
                 min_approvals: Number // Only for approval permission
             }, // Conditional, if reviewer_type is "Committee"
             single_permissions: {

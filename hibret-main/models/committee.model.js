@@ -9,11 +9,11 @@ const committeeSchema = new Schema({
     }, // Name of the committee
     members: [{ 
         type: Schema.Types.ObjectId, 
-        ref: 'Role' 
+        ref: 'User' 
     }], // References to users who are members of the committee
     chairperson: {
         type: Schema.Types.ObjectId,
-        ref: 'Role'
+        ref: 'User'
     }
 });
 
