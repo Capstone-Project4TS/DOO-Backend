@@ -35,7 +35,7 @@ const workflowTemplateSchema = new mongoose.Schema({
         committee_permissions: {
              permission: {
                 type: String,
-                enum: ['approve', 'review'], // Define enum values
+                enum: ['approver', 'reviewer'], // Define enum values
 
             },
             role_ids: {
@@ -51,7 +51,7 @@ const workflowTemplateSchema = new mongoose.Schema({
             },
             permission: {
                 type: String,
-                enum: ['approve', 'review'], // Define enum values
+                enum: ['approver', 'reviewer'], // Define enum values
                 // required: true
             },
         },// Conditional, if reviewer_type is "single"
@@ -68,7 +68,7 @@ const workflowTemplateSchema = new mongoose.Schema({
             committee_permissions: {
                 permission: {
                     type: String,
-                    enum: ['approve', 'review'], // Define enum values
+                    enum: ['approver', 'reviewer'], // Define enum values
                     // required: true
                 },
                 role_ids: {
@@ -84,14 +84,14 @@ const workflowTemplateSchema = new mongoose.Schema({
                 },
                 permission: {
                     type: String,
-                    enum: ['approve', 'review'], // Define enum values
+                    enum: ['approver', 'reviewer'], // Define enum values
                     // required: true
                 },
             }, // Conditional, if reviewer_type is "single"
             
         }]
     }],
-
+   
     additionalDoc: {  
         type: Boolean,
         default: false,
