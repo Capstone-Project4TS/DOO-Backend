@@ -5,6 +5,11 @@ export async function createDocumentTemplate(req, res) {
     try {
         const { title, subCategoryId, sections, conditionLogic } = req.body;
 
+         // Check if a document template with the same title already exists
+         const existingTemplate = await DocumentTemplate.findOne({ title });
+         if (existingTemplate) {
+             return res.status(400).json({ message: 'A document template with the same name already exists.' });
+         }
        
         // Initialize an empty array to store eligible conditions
         let eligibleConditions = [];
