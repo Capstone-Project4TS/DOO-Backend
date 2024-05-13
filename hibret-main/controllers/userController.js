@@ -1,4 +1,7 @@
 import UserModel from '../models/users.model.js';
+import UserWorkflow from '../models/userWorkflow.model.js';
+import Workflow from '../models/workflow.model.js';
+import {selectSingleUser} from './workflowController.js';
 import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
 import * as EmailService from '../services/emailService.js';
@@ -51,6 +54,31 @@ export async function createAccounts(req, res) {
         const allHRUsers = users.map(user => user.email);
         const usersToDelete = await UserModel.find({ email: { $nin: allHRUsers } });
         for (const userToDelete of usersToDelete) {
+            const { _id, role_id } = userToDelete; // Get _id and role_id of user to be deleted
+
+            // Get workflows assigned to user
+            const userWorkflows = await UserWorkflow.findOne({ _id });
+            if (userWorkflows) {
+                for (const workflow of userWorkflows.workflows) {
+                    // Reassign workflow to user with least workload
+                    const newUserId = await selectSingleUser(role_id);
+
+                    // Add workflow to new user's UserWorkflow
+                    await UserWorkflow.findOneAndUpdate(
+                        { userId: newUserId },
+                        { $push: { workflows: { workflowId: workflow.workflowId, isActive: workflow.isActive } } },
+                        { upsert: true }
+                    );
+
+                    // Replace userToDelete's userId with newUserId in assignedUsers of workflow
+                    await Workflow.updateOne(
+                        { _id: workflow.workflowId, 'assignedUsers.user': _id },
+                        { $set: { 'assignedUsers.$.user': newUserId } }
+                    );
+                }
+            }
+
+            // Delete user from UserModel
             await UserModel.deleteOne({ email: userToDelete.email });
             deletedUsers.push(userToDelete.email);
         }
