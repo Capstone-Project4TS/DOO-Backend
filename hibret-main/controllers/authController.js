@@ -87,14 +87,14 @@ export async function login(req, res) {
         req.session.data = {
             _id: user._id,
             username: user.username,
-            role: user.role,
+            role: user.role_id,
         };
         // Save the session (if you've modified data)
         await req.session.save();
         
        
         // Return success response
-        return res.status(200).send({ msg });
+        return res.status(200).send({ msg, data: req.session.data});
     } catch (error) {
         console.error('Error occurred during login:', error);
         return res.status(500).send({ error: "Internal server error." });
