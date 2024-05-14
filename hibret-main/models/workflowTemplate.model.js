@@ -1,23 +1,24 @@
-import {  model, mongoose , Schema, Types} from 'mongoose';
+import { model, mongoose, Schema, Types } from 'mongoose';
+import lodash from 'lodash'
 
 // Schema for storing historical versions of workflow templates
 const workflowTemplateHistorySchema = new Schema({
-    workflowTemplateId: { 
-        type: Types.ObjectId, 
-        ref: 'WorkflowTemplate', 
-        required: true 
+    workflowTemplateId: {
+        type: Types.ObjectId,
+        ref: 'WorkflowTemplate',
+        required: true
     },
-    version: { 
-        type: Number, 
-        required: true 
+    version: {
+        type: Number,
+        required: true
     },
-    data: { 
-        type: Schema.Types.Mixed, 
-        required: true 
+    data: {
+        type: Schema.Types.Mixed,
+        required: true
     },
-    createdAt: { 
-        type: Date, 
-        default: Date.now 
+    createdAt: {
+        type: Date,
+        default: Date.now
     }
 });
 
@@ -58,7 +59,7 @@ const workflowTemplateSchema = new mongoose.Schema({
             // required: true
         },
         committee_permissions: {
-             permission: {
+            permission: {
                 type: String,
                 enum: ['approve', 'review'], // Define enum values
 
@@ -113,47 +114,91 @@ const workflowTemplateSchema = new mongoose.Schema({
                     // required: true
                 },
             }, // Conditional, if reviewer_type is "single"
-            
+
         }]
     }],
 
-    additionalDoc: {  
+    additionalDoc: {
         type: Boolean,
         default: false,
-      },
+    },
     requiredDocumentTemplates: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'DocumentTemplate' // Reference to the DocumentTemplate model
     }]
 });
 
-// Middleware to track changes and create historical records
-workflowTemplateSchema.post('save', async function(next) {
+
+// Middleware to track changes and prevent duplicate versions
+import crypto from 'crypto'; // Import the crypto module
+
+workflowTemplateSchema.post('save', async function (next) {
     try {
+        // Access the current document being saved
+        const currentDocument = this;
+        console.log(currentDocument);
+
+        // Extract the fields to be hashed
+        const { stages, requiredDocumentTemplates } = currentDocument;
+
+        // Generate a SHA-256 hash for the specified fields in the current document's data
+        const hash = crypto.createHash('sha256')
+            .update(JSON.stringify({ stages, requiredDocumentTemplates })) // Hash only the specified fields
+            .digest('hex');
+        console.log(hash);
+
+        // Find all existing versions in WorkflowTemplateHistory for the current document's ID
+        const existingVersions = await WorkflowTemplateHistory.find({
+            workflowTemplateId: currentDocument._id
+        });
+
+        // Update existing versions to hash only the specified fields
+        for (const version of existingVersions) {
+            version.hash = crypto.createHash('sha256')
+                .update(JSON.stringify({ stages: version.data.stages, requiredDocumentTemplates: version.data.requiredDocumentTemplates }))
+                .digest('hex');
+            await version.save();
+        }
+
+        // Find all existing versions' data hashes excluding the current one in WorkflowTemplateHistory
+        const existingHashes = await WorkflowTemplateHistory.find({
+            workflowTemplateId: currentDocument._id, // Filter by the current document's ID
+            hash: { $ne: hash } // Exclude the current document's hash
+        }).distinct('hash');
+        console.log(existingHashes);
+
+        // Check if the generated hash already exists among the existing versions' hashes
+        const isUnique = !existingHashes.includes(hash);
+        console.log(isUnique);
+        if (!isUnique) {
+            const error = new Error('Duplicate workflow template version detected');
+            return next(error);
+        }
+
         // Check if the document is new or an existing one
-        if (this.isNew) {
+        if (currentDocument.isNew) {
             // If it's a new document, set the version to 1
-            this.version = 1;
-            console.log( this.version)
+            currentDocument.version = 1;
         } else {
             // If it's an existing document, increment the version
-            this.version = (this.version || 0) + 1;
-            // console.log( this.version)
+            currentDocument.version = (currentDocument.version || 0) + 1;
         }
-     
-        
 
-
-        await WorkflowTemplateHistory.create({
-            workflowTemplateId: this._id,
-            version: this.version,
-            data: this.toObject()
+        // Create a new version in the WorkflowTemplateHistory
+        const historyRecord = new WorkflowTemplateHistory({
+            workflowTemplateId: currentDocument._id,
+            version: currentDocument.version,
+            data: { stages, requiredDocumentTemplates }, // Save only the specified fields
+            createdAt: Date.now()
         });
+        await historyRecord.save();
+
        
     } catch (error) {
         next(error);
     }
 });
+
 
 const WorkflowTemplate = model('WorkflowTemplate', workflowTemplateSchema);
 

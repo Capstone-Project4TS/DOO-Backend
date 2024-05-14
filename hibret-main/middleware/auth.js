@@ -87,7 +87,6 @@ export function authorize (roles) {
   // Middleware to check if the user is logged in
 export function isLoggedIn(req, res, next) {
   if (req.session && req.session.data && req.session.data._id) {
-      // User is logged in
       
       next(); // Continue to the next middleware or route handler
   } else {

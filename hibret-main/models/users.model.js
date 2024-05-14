@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import Committee from '../models/committee.model.js';
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema({
@@ -25,7 +26,10 @@ const userSchema = new Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role'
   }, 
-
+  committee_id:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:'Committee'
+  },
   status: {
     type: String,
     enum: ['Active', 'Inactive'],
@@ -58,6 +62,7 @@ lockUntil: {
   type: Date,
   default: null
 }
+
 },
   {
     timestamps: true,

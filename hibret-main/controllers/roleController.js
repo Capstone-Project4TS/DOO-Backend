@@ -1,6 +1,7 @@
 //import { func } from "joi";
 import RoleModel from "../models/role.model.js";
 import Committee from "../models/committee.model.js";
+import UserModel from '../models/users.model.js';
 import { MongoClient } from "mongodb";
 
 const uri =  "mongodb+srv://root:root@cluster0.nchnoj6.mongodb.net/HR";
@@ -218,8 +219,45 @@ export async function getAllCommittee(req, res) {
         res.status(500).json({ error: 'Internal server error' });
     }
 }
+
+// Controller function to form a committee
+export async function formCommittee(req, res) {
+    try {
+        // Extract data from request body
+        const { name, members, chairperson } = req.body;
+
+        // Create a new committee document
+        const committee = await Committee.create({
+            name,
+            members,
+            chairperson
+        });
+
+        // Update user documents with committee ID
+        await Promise.all([
+            // Update members
+            UserModel.updateMany(
+                { _id: { $in: members } },
+                { $set: { committee_id: committee._id } }
+            ),
+            // Update chairperson
+            UserModel.updateOne(
+                { _id: chairperson },
+                { $set: { committee_id: committee._id } }
+            )
+        ]);
+
+        // Return success response
+        return res.status(200).json({ message: 'Committee formed successfully', committee });
+    } catch (error) {
+        console.error('Error forming committee:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
 export default {
   getRoleById,
   getAllRoles,
-  createCommittee
+  createCommittee,
+  formCommittee
   };

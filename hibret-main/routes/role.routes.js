@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllRoles, getRoleById, getAllDeps, getAllRolesByDepId, createCommittee,getAllCommittee } from '../controllers/roleController.js';
+import { getAllRoles, getRoleById, getAllDeps, getAllRolesByDepId, createCommittee,getAllCommittee,formCommittee } from '../controllers/roleController.js';
 
 const router = express.Router();
 
@@ -14,5 +14,7 @@ router.get('/roles/dep/:id', getAllRolesByDepId);
 
 router.post('/committee', createCommittee)
 router.get('/committee', getAllCommittee)
+router.post('/form_committee', formCommittee)
+
 
 export default router;

@@ -94,11 +94,12 @@ async function assignUserWithCondition(stage, documentData) {
                     // Select single user based on role and workload
                     potentialApprovers = await selectSingleUser(variant.single_permissions.role_id);
                     
+
                 } else if (variant.approverType === 'Committee') {
                     console.log('ComitteeWithCondition')
                     // Select committee members based on roles and workload
-                   // potentialApprovers = await selectCommitteeMembers(variant.committee_permissions.role_ids);
-                    potentialApprovers = variant.committee_permissions.role_ids;
+                   potentialApprovers = variant.committee_permissions.role_ids;
+                    
                 }
                 // Break the loop after finding the matched condition variant
                 break;
@@ -182,17 +183,10 @@ export async function selectSingleUser(role_id) {
     }
 }
 
-// Function to select committee members based on roles and workload
-async function selectCommitteeMembers(roleIds) {
-    // Query UserWorkflow collection to find committee members with least workload for the specified roles
-    // Logic to select committee members with least workload
-    // Return the selected committee members
-}
-
-
 
 // Helper function to assign user to a stage without condition
 async function assignUserWithoutCondition(stage) {
+    let potentialApprovers = [];
     if (stage.approverType === 'Single Person') {
         console.log('signlewithoutcondition')
         console.log(stage.single_permissions.role_id);

@@ -61,7 +61,6 @@ const getAllDocuments = async (req, res) => {
 };
 
 
-
 // Controller function to get a document by ID
 const getDocumentById = async (req, res) => {
   try {
@@ -82,7 +81,6 @@ const getDocumentById = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 
 // Controller function to get documents based on filters
@@ -116,7 +114,6 @@ const getDocumentsByFilter = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 
 // Controller function to delete a document by ID
