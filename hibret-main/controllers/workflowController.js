@@ -3,6 +3,7 @@ import WorkflowTemplate from '../models/workflowTemplate.model.js'
 import User from '../models/users.model.js'
 import UserWorkflow from '../models/userWorkflow.model.js';
 import { generatePdfFromDocumentData } from '../controllers/documentController.js'
+import Committee from '../models/committee.model.js';
 
 // Controller function to create a new workflow instance
 export async function createWorkflow(req, res) {
@@ -30,6 +31,8 @@ export async function createWorkflow(req, res) {
             } else {
                 // Select user with least workload for the role
                 assignedUser = await assignUserWithoutCondition(stage);
+                console.log('without condition, single')
+                console.log(assignedUser)
             }
             assignedUsers.push({ user: assignedUser, stageIndex: index });
         }
@@ -52,13 +55,25 @@ export async function createWorkflow(req, res) {
         const savedWorkflow = await newWorkflow.save();
 
         // Update or create user workflow entry
-        const userWorkflow = await UserWorkflow.findOneAndUpdate(
-            { userId: { $in: assignedUsers.map(user => user.user_id) } },
-            { $set: { workflows: assignedUsers.map(user => ({ workflowId: savedWorkflow._id, isActive: user.stageIndex === newWorkflow.currentStageIndex })) } },
-            { upsert: true, new: true }
-        );
+        const userWorkflows = [];
+        for (const user of assignedUsers) {
+            const { user: userId, stageIndex } = user;
+            
+            // Update or create user workflow entry
+            let userWorkflow = await UserWorkflow.findOneAndUpdate(
+                { userId },
+                { $addToSet: { workflows: { workflowId: savedWorkflow._id, isActive: stageIndex === newWorkflow.currentStageIndex } } },
+                { upsert: true, new: true }
+            );
 
-        return res.status(201).json({ workflow: savedWorkflow, userWorkflow });
+            // Check if userWorkflow is not null before pushing it into the array
+            if (userWorkflow) {
+                userWorkflows.push(userWorkflow);
+            }
+        }
+
+
+        return res.status(201).json({ workflow: savedWorkflow, userWorkflows });
     } catch (error) {
         console.error('Error creating workflow:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -88,15 +103,16 @@ async function assignUserWithCondition(stage, documentData) {
             if (conditionMatched) {
                 // Select approver(s) based on the condition variant
                 if (variant.approverType === 'Single Person') {
-                    console.log('true')
+                    console.log('SingleWithCondition')
                     console.log(variant.single_permissions.role_id);
                     // Select single user based on role and workload
                     potentialApprovers = await selectSingleUser(variant.single_permissions.role_id);
                     
                 } else if (variant.approverType === 'Committee') {
-                    console.log('true')
+                    console.log('ComitteeWithCondition')
                     // Select committee members based on roles and workload
-                    potentialApprovers = await selectCommitteeMembers(variant.committee_permissions.role_ids);
+                   // potentialApprovers = await selectCommitteeMembers(variant.committee_permissions.role_ids);
+                    potentialApprovers = variant.committee_permissions.role_ids;
                 }
                 // Break the loop after finding the matched condition variant
                 break;
@@ -146,10 +162,40 @@ function evaluateCondition(variant, conditionValue) {
 }
 
 // Function to select single user based on role and workload
-async function selectSingleUser(roleId) {
-    // Query UserWorkflow collection to find user(s) with least workload for the specified role
-    // Logic to select user(s) with least workload
-    // Return the selected user(s)
+export async function selectSingleUser(role_id) {
+    try {
+        // Find users with the given role_id
+        const users = await User.find({ role_id });
+
+        // Array to store workload details of each user
+        const workloadDetails = [];
+
+        // Iterate through users
+        for (const user of users) {
+            // Find the user's entry in the UserWorkflow collection
+            const userWorkflow = await UserWorkflow.findOne({ userId: user._id });
+
+            // If userWorkflow is found, count the number of workflows
+            let workflowCount = 0;
+            if (userWorkflow) {
+                workflowCount = userWorkflow.workflows.length;
+            }
+
+            // Push workload details to array
+            workloadDetails.push({ userId: user._id, workflowCount });
+        }
+
+        // Sort users based on workload (ascending order)
+        workloadDetails.sort((a, b) => a.workflowCount - b.workflowCount);
+
+        // Return the user ID with the least workload
+        console.log('the user with least workload');
+        console.log(workloadDetails[0].userId)
+        return workloadDetails[0].userId;
+    } catch (error) {
+        console.error("Error finding user with least workload:", error);
+        throw error; // Throw error for handling at higher level
+    }
 }
 
 // Function to select committee members based on roles and workload
@@ -163,9 +209,22 @@ async function selectCommitteeMembers(roleIds) {
 
 // Helper function to assign user to a stage without condition
 async function assignUserWithoutCondition(stage) {
-    // Select user with least workload for the role
-    // Logic to select user with least workload for the role
-    // Return the selected user
+    let potentialApprovers = [];
+    if (stage.approverType === 'Single Person') {
+        console.log('signlewithoutcondition')
+        console.log(stage.single_permissions.role_id);
+        // Select single user based on role and workload
+        potentialApprovers = await selectSingleUser(stage.single_permissions.role_id);
+        
+      
+    } else if (stage.approverType === 'Committee') {
+        console.log('committeeWithoutConditon')
+        // Select committee members based on roles and workload
+       // potentialApprovers = await selectCommitteeMembers(stage.committee_permissions.role_ids);
+       potentialApprovers = stage.committee_permissions.role_ids;
+
+    }
+    return potentialApprovers;
 }
 
 
