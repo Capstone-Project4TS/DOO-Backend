@@ -44,10 +44,10 @@ const documentTemplateSchema = new Schema({
         default:undefined,
       },
       // Define upload field specific to the upload type
-      upload: {
+      upload: [{
         type: String, // Assuming you store file path as string
         required: function() { return this.type === 'upload'; }, // Require upload field only for upload type
-    },
+    }],
       
       // Additional fields for complex sections (optional)
       isRequired: {
