@@ -94,7 +94,7 @@ export async function login(req, res) {
         
        
         // Return success response
-        return res.status(200).send({ msg });
+        return res.status(200).send({ msg, data: req.session.data});
     } catch (error) {
         console.error('Error occurred during login:', error);
         return res.status(500).send({ error: "Internal server error." });
