@@ -45,6 +45,7 @@ export async function createWorkflow(req, res) {
             assignedUsers
         });
 
+
         // Generate PDF from document data
         const generatedDocuments = await generatePdfFromDocumentData(data);
 
@@ -301,31 +302,350 @@ export async function deleteWorkflow(req, res) {
 }
 
 
-export async function approveWorkflow(req, res) {
-    const { workflowId } = req.params; // Assuming workflowId is passed in the URL parameters
+// export async function approveWorkflow(req, res) {
+//     const { workflowId } = req.params; // Assuming workflowId is passed in the URL parameters
+
+//     try {
+//         // Find the workflow by workflowId
+//         const workflow = await Workflow.findById(workflowId);
+//         if (!workflow) {
+//             return res.status(404).json({ message: 'Workflow not found' });
+//         }
+
+//         // Check if the workflow status is already "Approved"
+//         if (workflow.status === 'Approved') {
+//             return res.status(400).json({ message: 'Workflow status is already approved' });
+//         }
+
+//         // Update the workflow status to "Approved"
+//         workflow.status = 'Approved';
+//         await workflow.save();
+
+//         return res.status(200).json({ message: 'Workflow status updated to approved', workflow });
+//     } catch (error) {
+//         console.error('Error approving workflow:', error);
+//         return res.status(500).json({ error: 'Internal server error' });
+//     }
+// }
+
+export const moveStageForward = async (req, res) => {
+    const { workflowId, userId, comment } = req.body;
 
     try {
-        // Find the workflow by workflowId
+        const workflow = await Workflow.findById(workflowId);
+        if (!workflow) {
+            return res.status(404).json({ message: 'Workflow not found' });
+        }
+
+        const currentStageIndex = workflow.currentStageIndex;
+        const assignedUser = workflow.assignedUsers.find(
+            (user) => user.user.toString() === userId && user.stageIndex === currentStageIndex
+        );
+
+        if (!assignedUser) {
+            return res.status(403).json({ message: 'User not assigned to the current stage' });
+        }
+
+        // Check if the current stage is the last stage
+        if (currentStageIndex === workflow.assignedUsers.length - 1) {
+            return res.status(400).json({ message: 'Cannot move forward from the last stage' });
+        }
+
+        // Add comment if provided
+        if (comment) {
+            const nextUser = workflow.assignedUsers[currentStageIndex + 1]?.user;
+            workflow.comments.push({
+                stageIndex: currentStageIndex,
+                fromUser: userId,
+                toUser: workflow.assignedUsers[currentStageIndex + 1]?.user,
+                comment: comment,
+                visibleTo: [userId?.toString(),nextUser?.toString(), workflow.user._id.toString()].filter(Boolean) // Only commenter, next user and owner
+            });
+        }
+
+        // Move to the next stage if there is one
+        if (currentStageIndex < workflow.assignedUsers.length - 1) {
+            workflow.currentStageIndex += 1;
+            await UserWorkflow.updateOne(
+                { userId, 'workflows.workflowId': workflowId },
+                { $set: { 'workflows.$.isActive': false } }
+            );
+            const nextUserId = workflow.assignedUsers[workflow.currentStageIndex].user;
+            await UserWorkflow.updateOne(
+                { userId: nextUserId, 'workflows.workflowId': workflowId },
+                { $set: { 'workflows.$.isActive': true } }
+            );
+        }
+
+
+        await workflow.save();
+        return res.status(200).json({ workflow });
+    } catch (error) {
+        console.error('Error moving stage forward:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const moveStageBackward = async (req, res) => {
+    const { workflowId, userId, comment } = req.body;
+
+    try {
+        const workflow = await Workflow.findById(workflowId);
+        if (!workflow) {
+            return res.status(404).json({ message: 'Workflow not found' });
+        }
+
+        const currentStageIndex = workflow.currentStageIndex;
+        const assignedUser = workflow.assignedUsers.find(
+            (user) => user.user.toString() === userId && user.stageIndex === currentStageIndex
+        );
+
+        if (!assignedUser) {
+            return res.status(403).json({ message: 'User not assigned to the current stage' });
+        }
+
+        // Add comment if provided
+        if (comment) {
+            const prevUserId = workflow.assignedUsers[workflow.currentStageIndex]?.user || workflow.user;
+            workflow.comments.push({
+                stageIndex: currentStageIndex,
+                fromUser: userId,
+                toUser: workflow.assignedUsers[currentStageIndex - 1]?.user || workflow.user,
+                comment: comment,
+                visibleTo: [userId?.toString(),prevUserId?.toString(), workflow.user._id.toString()].filter(Boolean)
+            });
+        }
+
+        // Move to the previous stage if there is one
+        if (currentStageIndex >= 0) {
+            workflow.currentStageIndex -= 1;
+            await UserWorkflow.updateOne(
+                { userId, 'workflows.workflowId': workflowId },
+                { $set: { 'workflows.$.isActive': false } }
+            );
+
+            const prevUserId = workflow.assignedUsers[workflow.currentStageIndex]?.user || workflow.user;
+
+            if (prevUserId.toString() === workflow.user.toString()) {
+                // Special case: revert to owner
+                workflow.comments.push({ stageIndex: currentStageIndex, comment, fromUser: userId, toUser: workflow.user });
+                return res.status(200).json({ workflow, message: 'Workflow reverted to owner for editing.' });
+            } else {
+                await UserWorkflow.updateOne(
+                    { userId: prevUserId, 'workflows.workflowId': workflowId },
+                    { $set: { 'workflows.$.isActive': true } }
+                );
+            }
+        }
+
+        await workflow.save();
+        return res.status(200).json({ workflow });
+    } catch (error) {
+        console.error('Error moving stage backward:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const approveWorkflow = async (req, res) => {
+    const { workflowId, userId, comment } = req.body;
+
+    try {
+        const workflow = await Workflow.findById(workflowId);
+        if (!workflow) {
+            return res.status(404).json({ message: 'Workflow not found' });
+        }
+
+       // Check if the workflow status is already "Approved"
+        if (workflow.status === 'Approved') {
+            return res.status(400).json({ message: 'Workflow status is already approved' });
+        }
+
+        const currentStageIndex = workflow.currentStageIndex;
+        const assignedUser = workflow.assignedUsers.find(
+            (user) => user.user.toString() === userId && user.stageIndex === currentStageIndex
+        );
+
+        if (!assignedUser) {
+            return res.status(403).json({ message: 'User not assigned to the current stage' });
+        }
+
+        // Add comment if provided
+        if (comment) {
+            workflow.comments.push({
+                stageIndex: currentStageIndex,
+                fromUser: userId,
+                toUser: workflow.user,
+                comment: comment,
+                visibleTo: [userId?.toString(), workflow.user._id.toString()].filter(Boolean)
+            });
+        }
+
+        // Check if it's the last stage
+        if (currentStageIndex === workflow.assignedUsers.length - 1) {
+            workflow.status = 'Approved';
+            await workflow.save();
+            return res.status(200).json({ workflow });
+        } else {
+            return res.status(400).json({ message: 'Not at the last stage' });
+        }
+    } catch (error) {
+        console.error('Error approving workflow:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const rejectWorkflow = async (req, res) => {
+    const { workflowId, userId, comment } = req.body;
+
+    try {
         const workflow = await Workflow.findById(workflowId);
         if (!workflow) {
             return res.status(404).json({ message: 'Workflow not found' });
         }
 
         // Check if the workflow status is already "Approved"
-        if (workflow.status === 'Approved') {
+        if (workflow.status === 'Rejected') {
             return res.status(400).json({ message: 'Workflow status is already approved' });
         }
 
-        // Update the workflow status to "Approved"
-        workflow.status = 'Approved';
-        await workflow.save();
+        const currentStageIndex = workflow.currentStageIndex;
+        const assignedUser = workflow.assignedUsers.find(
+            (user) => user.user.toString() === userId && user.stageIndex === currentStageIndex
+        );
 
-        return res.status(200).json({ message: 'Workflow status updated to approved', workflow });
+        if (!assignedUser) {
+            return res.status(403).json({ message: 'User not assigned to the current stage' });
+        }
+
+        // Add comment if provided
+        if (comment) {
+            workflow.comments.push({
+                stageIndex: currentStageIndex,
+                fromUser: userId,
+                toUser: workflow.user,
+                comment: comment,
+                visibleTo: [userId?.toString(), workflow.user._id.toString()].filter(Boolean)
+            });
+        }
+
+        // Check if it's the last stage
+        if (currentStageIndex === workflow.assignedUsers.length - 1) {
+            workflow.status = 'Rejected';
+            await workflow.save();
+            return res.status(200).json({ workflow });
+        } else {
+            return res.status(400).json({ message: 'Not at the last stage' });
+        }
     } catch (error) {
-        console.error('Error approving workflow:', error);
+        console.error('Error rejecting workflow:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
-}
+};
+
+export const ownerEditAndMoveForward = async (req, res) => {
+    const { workflowId, userId, data, comment } = req.body;
+
+    try {
+        const workflow = await Workflow.findById(workflowId);
+        if (!workflow) {
+            return res.status(404).json({ message: 'Workflow not found' });
+        }
+
+        if (workflow.user.toString() !== userId) {
+            return res.status(403).json({ message: 'User is not the owner of the workflow' });
+        }
+
+        // Update documents
+        workflow.documents = data.documents || workflow.documents;
+        workflow.additionalDocuments = data.additionalDocuments || workflow.additionalDocuments;
+        
+        // Add comment if provided
+        if (comment) {
+            workflow.comments.push({
+                stageIndex: workflow.currentStageIndex,
+                fromUser: userId,
+                toUser: workflow.assignedUsers[workflow.currentStageIndex + 1]?.user,
+                comment: comment
+            });
+        }
+
+        // Move to the next stage if there is one
+        if (workflow.currentStageIndex < workflow.assignedUsers.length - 1) {
+            workflow.currentStageIndex += 1;
+            await UserWorkflow.updateOne(
+                { userId, 'workflows.workflowId': workflowId },
+                { $set: { 'workflows.$.isActive': false } }
+            );
+
+            const nextUserId = workflow.assignedUsers[workflow.currentStageIndex].user;
+            await UserWorkflow.updateOne(
+                { userId: nextUserId, 'workflows.workflowId': workflowId },
+                { $set: { 'workflows.$.isActive': true } }
+            );
+        }
+
+        await workflow.save();
+        return res.status(200).json({ workflow });
+    } catch (error) {
+        console.error('Error owner editing and moving forward:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getWorkflowDetails = async (req, res) => {
+    const { workflowId, userId } = req.params;
+
+    try {
+        // Fetch workflow details
+        const workflow = await Workflow.findById(workflowId)
+            .populate('workflowTemplate')
+            .populate('user')
+            .populate('documents.templateId')
+            .populate('assignedUsers')
+            // .populate('assignedUsers.committee')
+            .populate('comments.fromUser')
+            .populate('comments.toUser')
+            .populate('comments.visibleTo');
+
+
+        if (!workflow) {
+            return res.status(404).json({ message: 'Workflow not found' });
+        }
+
+        // Check if user is assigned to the workflow and active in the current stage
+        const assignedUser = workflow.assignedUsers.find(user => user.user.toString() === userId);
+        const isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+
+        // Check user permissions and determine button visibility
+        const isOwner = workflow.user._id.toString() === userId;
+        const currentStageIndex = workflow.currentStageIndex;
+        const canMoveForward = isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
+        const canMoveBackward = isActiveUser && currentStageIndex > 0;
+        const canApprove = isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1; 
+
+        // Determine comment visibility based on user role
+        const comments = isOwner ? workflow.comments : workflow.comments.filter(comment => comment.visibleTo.some(user => user._id.toString() === userId));
+
+        // Prepare response data
+        const responseData = {
+            workflow,
+            buttons: {
+                canMoveForward,
+                canMoveBackward,
+                isOwner,
+                canApprove
+                // Add more button visibility flags as needed...
+            },
+            comments
+        };
+
+        // Return the workflow details to the client
+        return res.status(200).json(responseData);
+    } catch (error) {
+        console.error('Error fetching workflow details:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
 
 export default {
     createWorkflow,
