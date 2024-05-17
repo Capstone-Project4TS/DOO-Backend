@@ -244,11 +244,11 @@ export const getAllWorkflows = async (req, res) => {
 
 // Controller function to fetch all workflow instances
 export const getWorkflowsById = async (req, res) => {
-    const {workflowId}= req.params;
+    const {id}= req.params;
     try {
         // Fetch  workflow instances from the database
-        const workflow = await Workflow.findById(workflowId);
-
+        const workflow = await Workflow.findById(id);
+ 
         console.log(workflow);
         return res.status(200).json(workflow);
     } catch (error) {
