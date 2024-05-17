@@ -25,7 +25,7 @@ const createDocument = async (req, res) => {
         const newDocument = new Document({
 
           title,
-          creationMethod:'fileUpload',
+          creationMethod: 'fileUpload',
           ownerId,
           workflowId,
           repositoryId,
@@ -45,7 +45,6 @@ const createDocument = async (req, res) => {
   }
 };
 
-
 // Controller function to get all documents
 const getAllDocuments = async (req, res) => {
   try {
@@ -59,8 +58,6 @@ const getAllDocuments = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-
 
 // Controller function to get a document by ID
 const getDocumentById = async (req, res) => {
@@ -82,8 +79,6 @@ const getDocumentById = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-
 
 // Controller function to get documents based on filters
 const getDocumentsByFilter = async (req, res) => {
@@ -117,8 +112,6 @@ const getDocumentsByFilter = async (req, res) => {
   }
 };
 
-
-
 // Controller function to delete a document by ID
 const deleteDocumentById = async (req, res) => {
   try {
@@ -139,7 +132,6 @@ const deleteDocumentById = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 // Controller function to create a new document from a blank page
 
@@ -178,7 +170,6 @@ export const createDocumentFromBlank = async (req, res) => {
   }
 };
 
-
 export async function getPdfDocument(req, res) {
   try {
     // Retrieve document id from request parameters
@@ -196,8 +187,8 @@ export async function getPdfDocument(req, res) {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-  
-    const  pdfBytes = Buffer.from(document.pdfBase64, 'base64');
+
+    const pdfBytes = Buffer.from(document.pdfBase64, 'base64');
 
     // Send the decoded content as a response
     res.setHeader('Content-Disposition', `attachment; filename="${document.filename}"`);
@@ -211,7 +202,7 @@ export async function getPdfDocument(req, res) {
   }
 }
 
-export async function getUploadedDoc(req, res){
+export async function getUploadedDoc(req, res) {
   try {
     const { id } = req.params;
 
@@ -236,6 +227,7 @@ export async function getUploadedDoc(req, res){
     return res.status(500).json({ error: 'Failed to retrieve file' });
   }
 }
+
 export async function generatePdfFromDocumentData(documentsData) {
   try {
     const generatedDocuments = []; // Array to store generated documents
@@ -303,7 +295,6 @@ export async function generatePdfFromDocumentData(documentsData) {
     throw new Error('Failed to generate PDFs');
   }
 }
-
 
 export default
   {

@@ -18,7 +18,12 @@ const WorkflowSchema = new Schema({
             required: true
         },
         type: Schema.Types.ObjectId,
-        ref: 'Document',
+        ref: 'Document'
+        // documentId: {
+        //     type: Schema.Types.ObjectId,
+        //     ref: 'Document',
+        //     required: true
+        // }
         
     },
     {
@@ -53,7 +58,14 @@ const WorkflowSchema = new Schema({
             ref: 'Committee'
         }
     }],
-    // Add any other fields as needed
+    comments: [{
+        stageIndex: Number,
+        fromUser: { type: Schema.Types.ObjectId, ref: 'User' },
+        toUser: { type: Schema.Types.ObjectId, ref: 'User' },
+        comment: String,
+        createdAt: { type: Date, default: Date.now },
+        visibleTo: [{ type: Schema.Types.ObjectId, ref: 'User' }]
+    }]
 });
 
 const Workflow = model('Workflow', WorkflowSchema);
