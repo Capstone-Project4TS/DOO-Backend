@@ -30,7 +30,10 @@ const documentTemplateSchema = new Schema({
         required: true
       },
  
-      value: Schema.Types.Mixed, // Adding a value field
+      value: {
+        type: Schema.Types.Mixed,
+        select: false // Make it invisible during template creation
+      },
       // Define options field only for select type
       options: {
         type: [String], // Array of strings
@@ -43,23 +46,35 @@ const documentTemplateSchema = new Schema({
         },
         default:undefined,
       },
-      // Define upload field specific to the upload type
-      upload: [{
-        type: String, // Assuming you store file path as string
-        required: function() { return this.type === 'upload'; }, // Require upload field only for upload type
-    }],
+       // Define upload field specific to the upload type
       
+       upload: {
+        type: [String],
+        validate: {
+          validator: function () {
+            return this.type === 'upload' ? !!this.upload : true;
+          },
+          message: 'Upload is required for upload type'
+        },
+        default: undefined
+      },
+
       // Additional fields for complex sections (optional)
       isRequired: {
         type: Boolean,
         default: false
       },
+    
       conditionalLogic: { // Define logic for displaying sections based on conditions
         type: Boolean,
         optional: true
   
       }}
-    ]
+    ],
+    multiple: {
+      type: Boolean,
+      default: false
+    }
     
   }],
   conditionLogic: {  // New field for overall template condition logic
@@ -71,6 +86,8 @@ const documentTemplateSchema = new Schema({
     dataType: String  // Renamed for clarity
   }],
 });
+
+
 const DocumentTemplate = model('DocumentTemplate', documentTemplateSchema);
 
 export default DocumentTemplate;

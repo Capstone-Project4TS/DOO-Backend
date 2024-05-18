@@ -2,12 +2,13 @@ import Workflow from '../models/workflow.model.js';
 import WorkflowTemplate from '../models/workflowTemplate.model.js'
 import User from '../models/users.model.js'
 import UserWorkflow from '../models/userWorkflow.model.js';
-import { generatePdfFromDocumentData } from '../controllers/documentController.js'
+import { handleData } from '../controllers/documentController.js'
 import Committee from '../models/committee.model.js';
 
 // Controller function to create a new workflow instance
 export async function createWorkflow(req, res) {
     const { workflowTemplateId, userId, data } = req.body;
+    const files = req.files;
 
     try {
         // Retrieve workflow template
@@ -24,20 +25,22 @@ export async function createWorkflow(req, res) {
         for (const [index, stage] of stages.entries()) {
             let assignedUser;
             if (stage.hasCondition) {
-                console.log(data)
+                
+                const conDoc = data.reqDoc;
+                console.log(conDoc)
                 // Evaluate condition and select appropriate user(s)
-                assignedUser = await assignUserWithCondition(stage,data);
-                console.log(assignedUser)
+                assignedUser = await assignUserWithCondition(stage,conDoc);
+                //console.log(assignedUser)
             } else {
                 // Select user with least workload for the role
                 assignedUser = await assignUserWithoutCondition(stage);
-                console.log('without condition, single')
-                console.log(assignedUser)
+                //console.log('without condition, single')
+                //console.log(assignedUser)
             }
             assignedUsers.push({ user: assignedUser, stageIndex: index });
         }
 
-        console.log(assignedUsers)
+        //console.log(assignedUsers)
         // Create workflow instance
         const newWorkflow = new Workflow({
             workflowTemplate: workflowTemplateId,
@@ -46,10 +49,14 @@ export async function createWorkflow(req, res) {
         });
 
         // Generate PDF from document data
-        const generatedDocuments = await generatePdfFromDocumentData(data);
+        const generatedDocuments = await handleData(data,files);
 
-        // Update documents field of the workflow
-        newWorkflow.documents = generatedDocuments;
+        // Update documents field of the workflow 
+        console.log(generatedDocuments.processedDocuments);
+        console.log(generatedDocuments.additionalDocuments);
+
+        newWorkflow.requiredDocuments = generatedDocuments.processedDocuments;
+        newWorkflow.additionalDocuments = generatedDocuments.additionalDocuments;
 
         // Save workflow instance
         const savedWorkflow = await newWorkflow.save();

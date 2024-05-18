@@ -1,6 +1,30 @@
 import { Schema, model } from 'mongoose';
-
-const WorkflowSchema = new Schema({
+const DocumentSchema = new Schema({
+    type: {
+      type: String,
+      enum: ['formdata', 'upload', 'both', 'texteditor'],
+      required: true
+    },
+    formData: {
+      type: Object, // Store form data as an object
+      default: null
+    },
+    fileUrl: {
+      type: String, // URL for the combined PDF (for formdata + upload)
+      default: null
+    },
+    files: {
+      type: [String], // Array of file URLs
+      default: []
+    }
+  });
+  
+  const WorkflowSchema = new Schema({
+    requiredDocuments: [DocumentSchema],
+    additionalDocuments: {
+      uploads: [String], // File URLs for uploaded files
+      textEditorDocs: [String] // File paths or content for text editor documents
+    },
     workflowTemplate: {
         type: Schema.Types.ObjectId,
         ref: 'WorkflowTemplate',
@@ -12,26 +36,29 @@ const WorkflowSchema = new Schema({
         required: true
     },
     documents: [{
-        templateId: {
+        // templateId: {
+        //     type: Schema.Types.ObjectId,
+        //     ref: 'DocumentTemplate',
+        //     required: true
+        // },
+        documentId: {
             type: Schema.Types.ObjectId,
-            ref: 'DocumentTemplate',
-            required: true
-        },
-        type: Schema.Types.ObjectId,
-        ref: 'Document',
-        
+            ref: 'Document'
+        }
     },
-    {
-    required: true
-    }
-],
+    // {
+    //     required: true
+    // }
+    ],
     additionalDocuments: [{
-        name: {
-            type: String,
-            required: true
-        },
-        type: Schema.Types.ObjectId,
-        ref: 'Document',
+        // name: {
+        //     type: String,
+        //     required: true
+        // },
+        documentId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Document'
+        }
     }],
     currentStageIndex: {
         type: Number,
