@@ -420,12 +420,12 @@ export async function getUploadedDoc(req, res) {
 //   }
 // }
 
-export async function handleData(req, res) {
+export async function handleData(reqDoc, addDoc,files) {
   try {
-    const { reqDoc, addDoc } = req.body;
+    // const { reqDoc, addDoc } = req.body;
     console.log('reqDoc:', reqDoc);
     console.log('addDoc:', addDoc);
-    const files = req.files || [];
+    // const files = req.files || [];
     console.log('Files:', files);
 
     if (!reqDoc && reqDoc.length === 0) {
@@ -479,6 +479,9 @@ export async function handleData(req, res) {
       await processDocs(addDocs);
     }
 
+    const savedReqDocIds = [];
+    const savedAddDocIds = [];
+
     const generatePDFs = async (docs) => {
       for (const doc of docs) {
         const pdfName = `document_${Date.now()}`;
@@ -494,7 +497,12 @@ export async function handleData(req, res) {
           filePath: [pdfUrl]
         });
 
-        await newDocument.save();
+        const savedDocument = await newDocument.save();
+        if (docs === reqDocs) {
+          savedReqDocIds.push(savedDocument._id);
+        } else {
+          savedAddDocIds.push(savedDocument._id);
+        }
       }
     };
 
@@ -503,12 +511,14 @@ export async function handleData(req, res) {
       await generatePDFs(addDocs);
     }
 
-    return res.status(200).json({
-      message: 'PDFs created, uploaded, and saved to the database successfully'
-    });
+    return {
+      message: 'PDFs created, uploaded, and saved to the database successfully',
+      reqDocIds: savedReqDocIds,
+      addDocIds: savedAddDocIds,
+    };
   } catch (error) {
     console.error('Error handling form data:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return { message: 'Internal server error' };
   }
 }
 
