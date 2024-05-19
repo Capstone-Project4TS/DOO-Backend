@@ -131,7 +131,7 @@ const createDocument = async (req, res) => {
         const newDocument = new Document({
 
           title,
-          creationMethod: 'fileUpload',
+          creationMethod:  'fileUpload',
           ownerId,
           workflowId,
           repositoryId,
@@ -151,7 +151,6 @@ const createDocument = async (req, res) => {
   }
 };
 
-
 // Controller function to get all documents
 const getAllDocuments = async (req, res) => {
   try {
@@ -165,8 +164,6 @@ const getAllDocuments = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-
 
 // Controller function to get a document by ID
 // const getDocumentById = async (req, res) => {
@@ -244,7 +241,6 @@ const deleteDocumentById = async (req, res) => {
   }
 };
 
-
 // Controller function to create a new document from a blank page
 
 export const createDocumentFromBlank = async (req, res) => {
@@ -281,7 +277,6 @@ export const createDocumentFromBlank = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 export async function getPdfDocument(req, res) {
   try {
@@ -370,6 +365,7 @@ export async function getUploadedDoc(req, res) {
     return res.status(500).json({ error: 'Failed to retrieve file' });
   }
 }
+
 export async function generatePdfFromDocumentData(documentsData) {
   try {
     const generatedDocuments = []; // Array to store generated documents
