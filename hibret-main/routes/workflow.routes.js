@@ -11,16 +11,6 @@ import { createWorkflow, getAllWorkflows,deleteWorkflow,updateWorkflow,getWorkfl
   getWorkflowDetails
  } from '../controllers/workflowController.js';
 
-// const storage = multer.diskStorage({
-//     destination: (req, file, cb) => {
-//       cb(null, 'uploads/');
-//     },
-//     filename: (req, file, cb) => {
-//       cb(null, file.originalname);
-//     }
-//   });
-  
-//   const upload = multer({ storage });
 
 // Route to create a new workflow instance
 router.post('/workflows',upload.array('files'), createWorkflow);

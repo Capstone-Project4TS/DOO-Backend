@@ -26,15 +26,11 @@ const documentSchema = new mongoose.Schema({
     },
   ],
 
-  mergedPdf: Buffer,
   filePath: [{
     type: String,
     required: false // This field is required for documents created through uploading
   }],
-  pdfBase64: {
-    type: String, // Stores Base64-encoded PDF data
-    required: false // Adjust based on your workflow
-  },
+
   creationDate: {
     type: Date,
     default: Date.now
@@ -44,6 +40,7 @@ const documentSchema = new mongoose.Schema({
     ref: 'Repository',
     required: false
   },
+
   versions: [{
     versionNumber: String,
     filePath: String,
@@ -62,16 +59,12 @@ const documentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Folder'
   },
-  // creationMethod: {
-  //   type: String,
-  //   enum: ['template', 'fileUpload', 'blankPage'],
-  //   // required: true
-  // },
+ 
   ownerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    // required: true
   },
+  
   acl: [{
     userId: {
       type: mongoose.Schema.Types.ObjectId,

@@ -2,12 +2,12 @@ import Workflow from '../models/workflow.model.js';
 import WorkflowTemplate from '../models/workflowTemplate.model.js'
 import User from '../models/users.model.js'
 import UserWorkflow from '../models/userWorkflow.model.js';
-import { handleData } from '../controllers/documentController.js'
+import  handleData  from '../controllers/documentController.js'
 import Committee from '../models/committee.model.js';
 
 // Controller function to create a new workflow instance
 export async function createWorkflow(req, res) {
-    const { workflowTemplateId, userId, data } = req.body;
+    const { workflowTemplateId, userId, reqDoc , addDoc} = req.body;
     const files = req.files;
 
     try {
@@ -26,7 +26,7 @@ export async function createWorkflow(req, res) {
             let assignedUser;
             if (stage.hasCondition) {
                 
-                const conDoc = data.reqDoc;
+                const conDoc = reqDoc;
                 console.log(conDoc)
                 // Evaluate condition and select appropriate user(s)
                 assignedUser = await assignUserWithCondition(stage,conDoc);
@@ -50,14 +50,14 @@ export async function createWorkflow(req, res) {
 
 
         // Generate PDF from document data
-        const generatedDocuments = await handleData(data,files);
+        const generatedDocuments = await handleData(reqDoc,addDoc , files );
 
         // Update documents field of the workflow 
-        console.log(generatedDocuments.processedDocuments);
-        console.log(generatedDocuments.additionalDocuments);
+        console.log(generatedDocuments.reqDocIds);
+        console.log(generatedDocuments.addDocIds);
 
-        newWorkflow.requiredDocuments = generatedDocuments.processedDocuments;
-        newWorkflow.additionalDocuments = generatedDocuments.additionalDocuments;
+        newWorkflow.requiredDocuments = generatedDocuments.reqDocIds;
+        newWorkflow.additionalDocuments = generatedDocuments.addDocIds;
 
         // Save workflow instance
         const savedWorkflow = await newWorkflow.save();
@@ -136,7 +136,7 @@ async function assignUserWithCondition(stage, documentData) {
 function extractConditionValue(fieldName, documentData) {
     // Iterate through documentData to find the field matching fieldName and return its value
     for (const data of documentData) {
-        for (const section of data.sections) {
+        for (const section of data) {
             // Find the content with the given fieldName
             const content = section.content.find(field => field.title === fieldName);
             if (content && content.value !== undefined) {
