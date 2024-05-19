@@ -66,6 +66,15 @@ const generatePDF = async (formData, urls, pdfName) => {
   console.log(urls);
   doc.pipe(fs.createWriteStream(pdfPath));
 
+   // Replace upload fields with URLs in formData
+   formData.sections.forEach(section => {
+    section.content.forEach(content => {
+      if (content.type === 'upload' && Array.isArray(content.upload)) {
+        content.upload = content.upload.map(upload => urls[upload] || upload);
+      }
+    });
+  });
+
   return new Promise((resolve, reject) => {
     const writeStream = fs.createWriteStream(pdfPath);
 
@@ -88,7 +97,7 @@ const generatePDF = async (formData, urls, pdfName) => {
 
         if (content.type === "upload" && content.upload) {
           content.upload.forEach((upload) => {
-            const url = urls[upload];
+            const url = upload;
             console.log(`Processing upload: ${upload}`); // Debug statement
             console.log(`Found URL: ${url}`); // Debug statement
 
@@ -438,21 +447,17 @@ export async function handleData(req, res) {
       for (const doc of docs) {
         for (const section of doc.sections) {
           for (const content of section.content) {
-            const uploadedFiles = [];
             if (content.type === 'upload' && content.upload) {
               for (const upload of content.upload) {
                 const file = files.find(file => upload.includes(file.originalname));
-                // console.log("here")
-                // console.log(file);
+             
                 if (file) {
                   try {
                     const url = await uploadFilesToCloudinary([file]);
-                    // console.log("url")
-                    // console.log(url)
+                   
                     if (url.length > 0) {
                       fileUrls[upload] = url[0];
                       console.log(fileUrls)
-                      // content.upload=url;
                       console.log(`Mapped URL: ${upload} -> ${url[0]}`);
                     }
                   } catch (error) {
@@ -463,7 +468,6 @@ export async function handleData(req, res) {
                   console.log(`File not found for upload: ${upload}`);
                 }
               }
-               // Replace the upload field with the Cloudinary URLs
               
             }
           }
