@@ -2,7 +2,6 @@ import Document from "../models/document.model.js";
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
-import DocumentTemplate from "../models/documentTemplate.model.js";
 import cloudinary from "../config/cloudinary.js";
 
 const uploadPDFToCloudinary = async (pdfBuffer, pdfName) => {
