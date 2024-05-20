@@ -1,6 +1,6 @@
 import {  model, mongoose } from 'mongoose';
 
-// Schema for storing historical versions of workflow templates
+// // Schema for storing historical versions of workflow templates
 // const workflowTemplateHistorySchema = new Schema({
 //     workflowTemplateId: { 
 //         type: Types.ObjectId, 
@@ -132,7 +132,7 @@ const workflowTemplateSchema = new mongoose.Schema({
     }
 });
 
-// Middleware to track changes and create historical records
+// // Middleware to track changes and create historical records
 // workflowTemplateSchema.post('save', async function(next) {
 //     try {
 //         // Check if the document is new or an existing one

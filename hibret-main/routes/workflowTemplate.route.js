@@ -4,7 +4,7 @@ import {
     createWorkflowTemplate,
     getAllWorkflowTemplates,
     getWorkflowTemplateById,
-    updateWorkflowTemplate,
+    // updateWorkflowTemplate,
     deleteWorkflowTemplate,
     getAllRequiredDocumentTemplates
 } from
@@ -14,7 +14,7 @@ import {
 router.post('/workflow-templates', createWorkflowTemplate);
 router.get('/workflow-templates', getAllWorkflowTemplates);
 router.get('/workflow-templates/:id', getWorkflowTemplateById);
-router.put('/workflow-templates/:id', updateWorkflowTemplate);
+// router.put('/workflow-templates/:id', updateWorkflowTemplate);
 router.delete('/workflow-templates/:id', deleteWorkflowTemplate);
 router.get('/workflow-templates/requiredDoc/:id', getAllRequiredDocumentTemplates);
 

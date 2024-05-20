@@ -126,43 +126,43 @@ export async function getWorkflowTemplateById(req, res) {
 }
 
 // Update a workflow template
-export async function updateWorkflowTemplate(req, res) {
-  try {
-    const { id } = req.params;
-    const { name, stages, requiredDocumentTemplates } = req.body;
+// export async function updateWorkflowTemplate(req, res) {
+//   try {
+//     const { id } = req.params;
+//     const { name, stages, requiredDocumentTemplates } = req.body;
 
-    // Find the existing workflow template by its ID
-    const existingWorkflowTemplate = await WorkflowTemplate.findById(id);
+//     // Find the existing workflow template by its ID
+//     const existingWorkflowTemplate = await WorkflowTemplate.findById(id);
 
-    if (!existingWorkflowTemplate) {
-      return res.status(404).json({ error: 'Workflow template not found' });
-    }
+//     if (!existingWorkflowTemplate) {
+//         return res.status(404).json({ error: 'Workflow template not found' });
+//     }
 
-    // Check if there are any changes in the parameters
-    const isModified = (
-      existingWorkflowTemplate.name !== name ||
-      JSON.stringify(existingWorkflowTemplate.stages) !== JSON.stringify(stages) ||
-      JSON.stringify(existingWorkflowTemplate.requiredDocumentTemplates) !== JSON.stringify(requiredDocumentTemplates)
-    );
+//     // Check if there are any changes in the parameters
+//     const isModified = (
+//       existingWorkflowTemplate.name !== name ||
+//       JSON.stringify(existingWorkflowTemplate.stages) !== JSON.stringify(stages) ||
+//       JSON.stringify(existingWorkflowTemplate.requiredDocumentTemplates) !== JSON.stringify(requiredDocumentTemplates)
+//   );
 
-    // If there are no changes, return without saving
-    if (!isModified) {
-      return;
-    }
-    // Update the properties of the existing workflow template
-    existingWorkflowTemplate.name = name;
-    existingWorkflowTemplate.stages = stages;
-    existingWorkflowTemplate.requiredDocumentTemplates = requiredDocumentTemplates;
+//   // If there are no changes, return without saving
+//   if (!isModified) {
+//       return ;
+//   }
+//     // Update the properties of the existing workflow template
+//     existingWorkflowTemplate.name = name;
+//     existingWorkflowTemplate.stages = stages;
+//     existingWorkflowTemplate.requiredDocumentTemplates = requiredDocumentTemplates;
 
-    // Save the updated workflow template
-    await existingWorkflowTemplate.save();
+//     // Save the updated workflow template
+    // await existingWorkflowTemplate.save();
 
-    res.status(200).json(existingWorkflowTemplate);
-  } catch (error) {
-    console.error('Error updating workflow template:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-}
+//     res.status(200).json(existingWorkflowTemplate);
+// } catch (error) {
+//     console.error('Error updating workflow template:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+// }
+// }
 
 // Delete a workflow template
 export async function deleteWorkflowTemplate(req, res) {
