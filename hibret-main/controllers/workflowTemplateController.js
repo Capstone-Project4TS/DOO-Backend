@@ -178,6 +178,6 @@ export default {
   createWorkflowTemplate,
   getAllWorkflowTemplates,
   getWorkflowTemplateById,
-  updateWorkflowTemplate,
+  // updateWorkflowTemplate,
   deleteWorkflowTemplate,
 };
