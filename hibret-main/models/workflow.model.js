@@ -1,6 +1,8 @@
 import { Schema, model } from 'mongoose';
 
-const WorkflowSchema = new Schema({
+  
+  const WorkflowSchema = new Schema({
+  
     workflowTemplate: {
         type: Schema.Types.ObjectId,
         ref: 'WorkflowTemplate',
@@ -11,33 +13,7 @@ const WorkflowSchema = new Schema({
         ref: 'User',
         required: true
     },
-    documents: [{
-        templateId: {
-            type: Schema.Types.ObjectId,
-            ref: 'DocumentTemplate',
-            required: true
-        },
-        type: Schema.Types.ObjectId,
-        ref: 'Document'
-        // documentId: {
-        //     type: Schema.Types.ObjectId,
-        //     ref: 'Document',
-        //     required: true
-        // }
-        
-    },
-    {
-    required: true
-    }
-],
-    additionalDocuments: [{
-        name: {
-            type: String,
-            required: true
-        },
-        type: Schema.Types.ObjectId,
-        ref: 'Document',
-    }],
+ 
     currentStageIndex: {
         type: Number,
         default: 0
@@ -65,6 +41,14 @@ const WorkflowSchema = new Schema({
         comment: String,
         createdAt: { type: Date, default: Date.now },
         visibleTo: [{ type: Schema.Types.ObjectId, ref: 'User' }]
+    }],
+    requiredDocuments: [{ 
+        type: Schema.Types.ObjectId,
+        ref: 'Document',
+        required: true}],
+    additionalDocuments: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Document'
     }]
 });
 

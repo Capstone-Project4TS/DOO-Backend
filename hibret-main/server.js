@@ -20,6 +20,7 @@ import initPassportJS from "./startup/passport.js";
 import initCORS from "./startup/cors.js";
 import MongoStore from 'connect-mongo';
 import startCronJob from './startup/dataBaseUpdater.js';
+import path from 'path';
 
 const app = express();
 /** middlewares */
@@ -51,6 +52,7 @@ app.use(session({
     secure: false,
   }
 }));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(passport.session());
 

@@ -1,48 +1,128 @@
-import multer from 'multer';
-import Document from '../models/document.model.js'
-import upload from '../config/multerConfig.js'
-import { PDFDocument, rgb } from 'pdf-lib';
-import mongoose from 'mongoose';
-import fs from 'fs';
+import Document from "../models/document.model.js";
+import PDFDocument from "pdfkit";
+import fs from "fs";
+import path from "path";
+import cloudinary from "../config/cloudinary.js";
 
-
-const createDocument = async (req, res) => {
-  try {
-    upload.array('files[]')(req, res, async (err) => {
-      if (err) {
-        console.error('File upload error:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+const uploadPDFToCloudinary = async (pdfBuffer, pdfName) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { resource_type: "raw", format: "pdf", public_id: pdfName.split(".")[0] },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+        resolve(result.secure_url);
       }
+    );
 
-      // Extract common document data
-      const { title, ownerId, workflowId, repositoryId, folderId } = req.body;
+    uploadStream.end(pdfBuffer);
+  });
+};
 
-      // Extract uploaded files
-      const files = req.files || [];
+const uploadFilesToCloudinary = async (files) => {
+  const uploadPromises = files.map(async (file) => {
+    const filePath =
+      "C:/Users/AA/Desktop/CapstoneProject/DOO-Backend/hibret-main/uploads/" +
+      file.filename;
+    try {
+      const fileBuffer = await fs.promises.readFile(filePath);
 
-      // Save each file as a separate document instance
-      const savedDocuments = await Promise.all(files.map(async file => {
-        const newDocument = new Document({
+      // Return a new Promise to handle the upload process
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { resource_type: "auto", public_id: file.originalname.split(".")[0] },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result.secure_url);
+            }
+          }
+        );
 
-          title,
-          creationMethod: 'fileUpload',
-          ownerId,
-          workflowId,
-          repositoryId,
-          folderId,
-          filename: file.originalname,
-          filePath: file.path
-        });
-        return await newDocument.save();
-      }));
+        // Write the file buffer to the upload stream
+        uploadStream.end(fileBuffer);
+      });
+    } catch (error) {
+      console.error("Error uploading file to Cloudinary:", error);
+      throw error; // Rethrow the error to handle it in the caller function
+    }
+  });
 
-      // Respond with success message and saved document details
-      return res.status(200).json({ message: 'Documents created successfully', documents: savedDocuments });
-    });
+  try {
+    return await Promise.all(uploadPromises);
   } catch (error) {
-    console.error('Error creating documents:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error uploading files:", error);
+    throw error; // Rethrow the error to handle it in the caller function
   }
+};
+
+const generatePDF = async (formData, urls, pdfName) => {
+  const doc = new PDFDocument();
+  const pdfPath = path.join("uploads", `${pdfName}.pdf`);
+  console.log(formData);
+  console.log(urls);
+  doc.pipe(fs.createWriteStream(pdfPath));
+
+   // Replace upload fields with URLs in formData
+   formData.sections.forEach(section => {
+    section.content.forEach(content => {
+      if (content.type === 'upload' && Array.isArray(content.upload)) {
+        content.upload = content.upload.map(upload => urls[upload] || upload);
+      }
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    const writeStream = fs.createWriteStream(pdfPath);
+
+    writeStream.on("finish", () => {
+      resolve(pdfPath);
+    });
+
+    writeStream.on("error", (error) => {
+      reject(error);
+    });
+
+    doc.pipe(writeStream);
+    doc.fontSize(18).text(formData.title, { underline: true }).moveDown();
+
+    formData.sections.forEach((section) => {
+      doc.fontSize(16).text(section.title, { underline: true }).moveDown();
+
+      section.content.forEach(async (content) => {
+        doc.fontSize(14).fillColor("black").text(content.title, { bold: true });
+
+        if (content.type === "upload" && content.upload) {
+          content.upload.forEach((upload) => {
+            const url = upload;
+            console.log(`Processing upload: ${upload}`); // Debug statement
+            console.log(`Found URL: ${url}`); // Debug statement
+
+            if (url) {
+              doc.fontSize(12).fillColor("blue").text(url, {
+                link: url,
+                underline: true,
+              });
+            } else {
+              console.log(`No URL found for: ${upload}`);
+            }
+          });
+        } else {
+          doc
+            .fontSize(12)
+            .fillColor("black")
+            .text(content.value || "");
+        }
+        doc.moveDown();
+      });
+
+      doc.addPage();
+    });
+
+    doc.end();
+  });
 };
 
 // Controller function to get all documents
@@ -54,8 +134,8 @@ const getAllDocuments = async (req, res) => {
     // Respond with the retrieved documents
     return res.status(200).json({ documents });
   } catch (error) {
-    console.error('Error retrieving documents:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error retrieving documents:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -69,18 +149,19 @@ const getDocumentById = async (req, res) => {
 
     // Check if the document exists
     if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ error: "Document not found" });
     }
 
     // Respond with the retrieved document
     return res.status(200).json({ document });
   } catch (error) {
-    console.error('Error retrieving document:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error retrieving document:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // Controller function to get documents based on filters
+
 const getDocumentsByFilter = async (req, res) => {
   try {
     // Extract filter parameters from the query string
@@ -107,8 +188,8 @@ const getDocumentsByFilter = async (req, res) => {
     // Respond with the retrieved documents
     return res.status(200).json({ documents });
   } catch (error) {
-    console.error('Error retrieving documents by filter:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error retrieving documents by filter:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -122,85 +203,16 @@ const deleteDocumentById = async (req, res) => {
 
     // Check if the document was found and deleted
     if (!deletedDocument) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ error: "Document not found" });
     }
 
     // Respond with a success message
-    return res.status(200).json({ message: 'Document deleted successfully' });
+    return res.status(200).json({ message: "Document deleted successfully" });
   } catch (error) {
-    console.error('Error deleting document:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error deleting document:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
-
-// Controller function to create a new document from a blank page
-
-export const createDocumentFromBlank = async (req, res) => {
-  try {
-    const { title, ownerId, workflowId, repositoryId, folderId, content } = req.body;
-
-    // Create a new PDF document
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage();
-    page.drawText(content || '', { x: 50, y: 500 });
-
-    // Convert the PDF document to base64
-    const pdfBytes = await pdfDoc.save();
-    const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
-
-    // Create a new document with the provided data
-    const newDocument = new Document({
-      title,
-      ownerId,
-      workflowId,
-      repositoryId,
-      folderId,
-      pdfBase64, // Store the PDF content as base64
-      creationMethod: 'blankPage',
-    });
-
-    // Save the new document to the database
-    const savedDocument = await newDocument.save();
-
-    // Respond with success message and saved document details
-    return res.status(200).json({ message: 'Document created successfully', document: savedDocument });
-  } catch (error) {
-    console.error('Error creating document from blank:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-export async function getPdfDocument(req, res) {
-  try {
-    // Retrieve document id from request parameters
-    const { id } = req.params;
-
-    // Check if the provided ID is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Invalid document ID' });
-    }
-
-    // Fetch the document from the database based on the documentId
-    const document = await Document.findById(id);
-
-    if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-
-
-    const pdfBytes = Buffer.from(document.pdfBase64, 'base64');
-
-    // Send the decoded content as a response
-    res.setHeader('Content-Disposition', `attachment; filename="${document.filename}"`);
-    res.setHeader('Content-Type', 'application/pdf');
-    return res.send(pdfBytes);
-    // Send the PDF Base64 string to the frontend
-    // return res.status(200).json({ pdfBase64: document.pdfBase64 });
-  } catch (error) {
-    console.error('Error fetching document:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-}
 
 export async function getUploadedDoc(req, res) {
   try {
@@ -210,101 +222,310 @@ export async function getUploadedDoc(req, res) {
     const document = await Document.findById(id);
 
     if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ error: "Document not found" });
     }
 
     // For simplicity, assuming the file is stored in the file system
     fs.readFile(document.filePath, (err, data) => {
       if (err) {
-        console.error('Error reading file:', err);
-        return res.status(500).json({ error: 'Failed to read file' });
+        console.error("Error reading file:", err);
+        return res.status(500).json({ error: "Failed to read file" });
       }
       // Send the file data to the frontend
       res.status(200).json({ fileData: data });
     });
   } catch (error) {
-    console.error('Error retrieving file:', error);
-    return res.status(500).json({ error: 'Failed to retrieve file' });
+    console.error("Error retrieving file:", error);
+    return res.status(500).json({ error: "Failed to retrieve file" });
   }
 }
 
-export async function generatePdfFromDocumentData(documentsData) {
+// export async function handleData(req, res) {
+//   try {
+//     const { reqDoc, addDoc } = req.body;
+//     console.log("reqDoc:", reqDoc);
+//     console.log("addDoc:", addDoc);
+//     const files = req.files || [];
+//     console.log(files);
+
+//     if (!reqDoc && reqDoc.length == 0) {
+//       return res.status(400).json({ message: "No data provided" });
+//     }
+
+//     let reqDocs = [],
+//       addDocs = [];
+//     try {
+//       reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
+//       addDocs = addDoc ? JSON.parse(addDoc) : [];
+//     } catch (error) {
+//       console.error("Invalid JSON format in reqDoc:", error);
+//       return res.status(400).json({ message: "Invalid JSON format" });
+//     }
+
+//     // Step 1: Upload files and gather URLs
+//     const fileUrls = {};
+//     const processDocs = async (docs) => {
+//       for (const doc of docs) {
+//         for (const section of doc.sections) {
+//           for (const content of section.content) {
+//             if (content.type === "upload" && content.upload) {
+//               for (const upload of content.upload) {
+//                 const file = files.find((file) =>
+//                   upload.includes(file.originalname)
+//                 );
+//                 if (file) {
+//                   try {
+//                     const url = await uploadFilesToCloudinary([file]);
+//                     if (url.length > 0) {
+//                       fileUrls[upload] = url[0];
+//                       console.log(`Mapped URL: ${upload} -> ${url[0]}`);
+//                     }
+//                   } catch (error) {
+//                     console.error("Error uploading file to Cloudinary:", error);
+//                     throw error;
+//                   }
+//                 } else {
+//                   console.log(`File not found for upload: ${upload}`);
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     };
+
+//     // Process reqDocs
+//     await processDocs(reqDocs);
+
+//     // Process addDocs if provided
+//     if (addDocs.length > 0) {
+//       await processDocs(addDocs);
+//     }
+
+//     // Step 2: Map the template with actual values
+//     const mapTemplateWithValues = async (doc) => {
+//       const template = await DocumentTemplate.findById(doc.templateId);
+//       if (!template) {
+//         throw new Error(`Template not found for ID: ${doc.templateId}`);
+//       }
+
+//       const mappedDoc = {
+//         templateId: doc.templateId,
+//         title: template.title,
+//         sections: template.sections.map((templateSection) => {
+//           const docSection =
+//             doc.sections.find(
+//               (section) => section.title === templateSection.title
+//             ) || {};
+//           return {
+//             title: templateSection.title,
+//             content: templateSection.content.map((templateContent) => {
+//               const docContent =
+//                 (docSection.content || []).find(
+//                   (content) => content.title === templateContent.title
+//                 ) || {};
+//               let mappedContent = {
+//                 ...templateContent.toObject(),
+//                 value: docContent.value || templateContent.value,
+//               };
+//               // Replace the upload placeholders with actual URLs
+//               if (mappedContent.type === "upload" && docContent.upload) {
+//                 mappedContent.upload = docContent.upload.map(
+//                   (upload) => fileUrls[upload] || upload
+//                 );
+//                 console.log(`Replaced URLs in content: ${JSON.stringify(mappedContent.upload)}`);
+//               }
+//               return mappedContent;
+//             }),
+//           };
+//         }),
+//       };
+//       return mappedDoc;
+//     };
+
+//     const mappedReqDocs = await Promise.all(
+//       reqDocs.map((doc) => mapTemplateWithValues(doc))
+//     );
+//     const mappedAddDocs =
+//       addDocs.length > 0
+//         ? await Promise.all(addDocs.map((doc) => mapTemplateWithValues(doc)))
+//         : [];
+
+//     // Save raw info in Document model before generating PDFs
+//     const saveRawDocuments = async (docs) => {
+//       for (const doc of docs) {
+//         const newDocument = new Document({
+//           templateId: doc.templateId,
+//           title: doc.title,
+//           sections: doc.sections.map((section) => ({
+//             title: section.title,
+//             content: section.content.reduce((acc, content) => {
+//               acc[content.title] = content.value || content.upload;
+//               return acc;
+//             }, {}),
+//           })),
+//         });
+//         await newDocument.save();
+//       }
+//     };
+
+//     await saveRawDocuments(mappedReqDocs);
+//     if (mappedAddDocs.length > 0) {
+//       await saveRawDocuments(mappedAddDocs);
+//     }
+
+//     // Generate PDFs with the gathered URLs
+//     const generatePDFs = async (docs) => {
+//       for (const doc of docs) {
+//         const pdfName = `document_${Date.now()}`;
+//         const pdfPath = await generatePDF(doc, fileUrls, pdfName);
+
+//         // Update the filePath field with the Cloudinary link
+//         const pdfBuffer = fs.readFileSync(pdfPath);
+//         const pdfUrl = await uploadPDFToCloudinary(pdfBuffer, pdfName);
+//         console.log(pdfUrl);
+
+//         doc.filePath = [pdfUrl];
+
+//         // Save the document to the database
+//         await saveDocumentToDatabase(doc);
+//       }
+//     };
+
+//     // Save the document to the database
+//     const saveDocumentToDatabase = async (doc) => {
+//       try {
+//         const document = new Document(doc);
+//         await document.save();
+//         console.log("Document saved successfully:", document);
+//       } catch (error) {
+//         console.error("Error saving document to the database:", error);
+//         throw error;
+//       }
+//     };
+//     // Generate PDFs for reqDocs
+//     await generatePDFs(mappedReqDocs);
+
+//     // Generate PDFs for addDocs if provided
+//     if (mappedAddDocs.length > 0) {
+//       await generatePDFs(mappedAddDocs);
+//     }
+
+//     return res.status(200).json({
+//       message: "PDF created and uploaded successfully",
+//     });
+//   } catch (error) {
+//     console.error("Error handling form data:", error);
+//     return res.status(500).json({ message: "Internal server error" });
+//   }
+// }
+
+export async function handleData(reqDoc, addDoc,files) {
   try {
-    const generatedDocuments = []; // Array to store generated documents
+    // const { reqDoc, addDoc } = req.body;
+    console.log('reqDoc:', reqDoc);
+    console.log('addDoc:', addDoc);
+    // const files = req.files || [];
+    console.log('Files:', files);
 
-    // Iterate over each document data object
-    for (const documentData of documentsData) {
-      const { title, ownerId, workflowId, repositoryId, folderId, templateId, sections } = documentData;
-
-      // Create a new PDF document
-      const pdfDoc = await PDFDocument.create();
-
-      // Add a page to the document
-      const page = pdfDoc.addPage();
-
-      // Set document title as heading
-      page.drawText(title, { x: 50, y: 750, size: 24, color: rgb(0, 0, 0) });
-
-      let yOffset = 700;
-
-      // Iterate over each section in the document
-      for (const section of sections) {
-        // Add section title
-        yOffset -= 20;
-        page.drawText(section.title, { x: 50, y: yOffset, size: 18, color: rgb(0, 0, 0) });
-        yOffset -= 30;
-
-        // Iterate over content in the section
-        for (const contentItem of section.content) {
-          // Add content based on type
-          yOffset -= 15;
-          const fieldText = `${contentItem.title}: ${contentItem.value}`;
-          page.drawText(fieldText, { x: 50, y: yOffset, size: 12, color: rgb(0, 0, 0) });
-          yOffset -= 20;
-        }
-      }
-
-      // Serialize PDF document to bytes
-      const pdfBytes = await pdfDoc.save();
-
-      // Convert PDF buffer to Base64 string
-      const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
-
-      // Save PDF in the database along with document data
-      const newDocument = new Document({
-        title,
-        ownerId,
-        workflowId,
-        repositoryId,
-        folderId,
-        templateId,
-        pdfBase64,
-        sections, // Store the sections data along with the document
-        creationMethod: 'template',
-      });
-
-      await newDocument.save();
-
-      // Add document to the array of generated documents
-      generatedDocuments.push(newDocument);
+    if (!reqDoc && reqDoc.length === 0) {
+      return res.status(400).json({ message: 'No data provided' });
     }
 
-    return generatedDocuments;
+    let reqDocs = [], addDocs = [];
+    try {
+      reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
+      addDocs = addDoc ? JSON.parse(addDoc) : [];
+    } catch (error) {
+      console.error("Invalid JSON format in reqDoc or addDoc:", error);
+      return res.status(400).json({ message: 'Invalid JSON format' });
+    }
+
+    const fileUrls = {};
+    const processDocs = async (docs) => {
+      for (const doc of docs) {
+        for (const section of doc.sections) {
+          for (const content of section.content) {
+            if (content.type === 'upload' && content.upload) {
+              for (const upload of content.upload) {
+                const file = files.find(file => upload.includes(file.originalname));
+             
+                if (file) {
+                  try {
+                    const url = await uploadFilesToCloudinary([file]);
+                   
+                    if (url.length > 0) {
+                      fileUrls[upload] = url[0];
+                      console.log(fileUrls)
+                      console.log(`Mapped URL: ${upload} -> ${url[0]}`);
+                    }
+                  } catch (error) {
+                    console.error('Error uploading file to Cloudinary:', error);
+                    throw error;
+                  }
+                } else {
+                  console.log(`File not found for upload: ${upload}`);
+                }
+              }
+              
+            }
+          }
+        }
+      }
+    };
+
+    await processDocs(reqDocs);
+    if (addDocs.length > 0) {
+      await processDocs(addDocs);
+    }
+
+    const savedReqDocIds = [];
+    const savedAddDocIds = [];
+
+    const generatePDFs = async (docs) => {
+      for (const doc of docs) {
+        const pdfName = `document_${Date.now()}`;
+        const pdfPath = await generatePDF(doc, fileUrls, pdfName);
+        const pdfBuffer = fs.readFileSync(pdfPath);
+        const pdfUrl = await uploadPDFToCloudinary(pdfBuffer, pdfName);
+        console.log(pdfUrl);
+
+        const newDocument = new Document({
+          templateId: doc.templateId,
+          title: doc.title,
+          sections: doc.sections,
+          filePath: [pdfUrl]
+        });
+
+        const savedDocument = await newDocument.save();
+        if (docs === reqDocs) {
+          savedReqDocIds.push(savedDocument._id);
+        } else {
+          savedAddDocIds.push(savedDocument._id);
+        }
+      }
+    };
+
+    await generatePDFs(reqDocs);
+    if (addDocs.length > 0) {
+      await generatePDFs(addDocs);
+    }
+
+    return {
+      message: 'PDFs created, uploaded, and saved to the database successfully',
+      reqDocIds: savedReqDocIds,
+      addDocIds: savedAddDocIds,
+    };
   } catch (error) {
-    console.error('Error generating PDFs:', error);
-    throw new Error('Failed to generate PDFs');
+    console.error('Error handling form data:', error);
+    return { message: 'Internal server error' };
   }
 }
 
-export default
-  {
-    getUploadedDoc,
-    createDocument,
-    getAllDocuments,
-    getDocumentById,
-    getDocumentsByFilter,
-    deleteDocumentById,
-    createDocumentFromBlank,
-    generatePdfFromDocumentData,
-    getPdfDocument,
-  };
+export default {
+  getUploadedDoc,
+  getAllDocuments,
+  getDocumentById,
+  getDocumentsByFilter,
+  deleteDocumentById,
+};

@@ -14,23 +14,23 @@ export async function createDocumentTemplate(req, res) {
         // Initialize an empty array to store eligible conditions
         let eligibleConditions = [];
 
-    
-        // Iterate over each section to check for conditional logic
-        sections.forEach(section => {
-            // Iterate over each content in the section
-            section.content.forEach(content => {
-                // Check if the content has conditional logic
-                if (content.conditionLogic) {
-                    // Add the content's title and type as an eligible condition
-                    eligibleConditions.push({
-                        fieldName: content.title,
-                        dataType: content.type
-                    });
-                }
+        if(conditionLogic){
+            // Iterate over each section to check for conditional logic
+            sections.forEach(section => {
+                // Iterate over each content in the section
+                section.content.forEach(content => {
+                    // Check if the content has conditional logic
+                    if (content.conditionLogic) {
+                        // Add the content's title and type as an eligible condition
+                        eligibleConditions.push({
+                            fieldName: content.title,
+                            dataType: content.type
+                        });
+                    }
+                });
             });
-        });
 
-       
+        }
 
         const newTemplate = new DocumentTemplate({
             title,

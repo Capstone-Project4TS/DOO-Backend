@@ -1,4 +1,4 @@
-import {  model, mongoose , Schema, Types} from 'mongoose';
+import {  model, mongoose } from 'mongoose';
 
 // // Schema for storing historical versions of workflow templates
 // const workflowTemplateHistorySchema = new Schema({
@@ -125,6 +125,11 @@ const workflowTemplateSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'DocumentTemplate' // Reference to the DocumentTemplate model
     }]
+    ,
+    additionalDocumentTemplate: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'DocumentTemplate' // Reference to the DocumentTemplate model
+    }
 });
 
 // // Middleware to track changes and create historical records

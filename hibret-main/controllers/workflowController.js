@@ -2,13 +2,21 @@ import Workflow from '../models/workflow.model.js';
 import WorkflowTemplate from '../models/workflowTemplate.model.js'
 import User from '../models/users.model.js'
 import UserWorkflow from '../models/userWorkflow.model.js';
-import { generatePdfFromDocumentData } from '../controllers/documentController.js'
+import  {handleData}  from '../controllers/documentController.js'
 import Committee from '../models/committee.model.js';
 
 // Controller function to create a new workflow instance
 export async function createWorkflow(req, res) {
-    const { workflowTemplateId, userId, data } = req.body;
-
+    const { workflowTemplateId, userId, reqDoc , addDoc} = req.body;
+    const files = req.files;
+    let reqDocs = [], addDocs = [];
+    try {
+      reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
+      addDocs = addDoc ? JSON.parse(addDoc) : [];
+    } catch (error) {
+      console.error("Invalid JSON format in reqDoc or addDoc:", error);
+      return res.status(400).json({ message: 'Invalid JSON format' });
+    }
     try {
         // Retrieve workflow template
         const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
@@ -16,6 +24,7 @@ export async function createWorkflow(req, res) {
             return res.status(404).json({ message: 'Workflow template not found' });
         }
 
+        
         // Extract stage information
         const stages = workflowTemplate.stages;
 
@@ -24,20 +33,20 @@ export async function createWorkflow(req, res) {
         for (const [index, stage] of stages.entries()) {
             let assignedUser;
             if (stage.hasCondition) {
-                console.log(data)
+                
                 // Evaluate condition and select appropriate user(s)
-                assignedUser = await assignUserWithCondition(stage,data);
-                console.log(assignedUser)
+                assignedUser = await assignUserWithCondition(stage,reqDocs);
+                //console.log(assignedUser)
             } else {
                 // Select user with least workload for the role
                 assignedUser = await assignUserWithoutCondition(stage);
-                console.log('without condition, single')
-                console.log(assignedUser)
+                //console.log('without condition, single')
+                //console.log(assignedUser)
             }
             assignedUsers.push({ user: assignedUser, stageIndex: index });
         }
 
-        console.log(assignedUsers)
+        //console.log(assignedUsers)
         // Create workflow instance
         const newWorkflow = new Workflow({
             workflowTemplate: workflowTemplateId,
@@ -47,10 +56,14 @@ export async function createWorkflow(req, res) {
 
 
         // Generate PDF from document data
-        const generatedDocuments = await generatePdfFromDocumentData(data);
+        const generatedDocuments = await handleData(reqDoc,addDoc , files );
 
-        // Update documents field of the workflow
-        newWorkflow.documents = generatedDocuments;
+        // Update documents field of the workflow 
+        console.log(generatedDocuments.reqDocIds);
+        console.log(generatedDocuments.addDocIds);
+
+        newWorkflow.requiredDocuments = generatedDocuments.reqDocIds;
+        newWorkflow.additionalDocuments = generatedDocuments.addDocIds;
 
         // Save workflow instance
         const savedWorkflow = await newWorkflow.save();
@@ -81,7 +94,7 @@ export async function createWorkflow(req, res) {
     }
 }
 
-// Helper function to assign user to a stage with condition
+// Helper function to assign user to a s;/,tage with condition
 async function assignUserWithCondition(stage, documentData) {
     // Extract the condition field and its value from the stage
     console.log(documentData)
@@ -125,22 +138,34 @@ async function assignUserWithCondition(stage, documentData) {
     return potentialApprovers;
 }
 
+
 // Function to extract condition value from document data
 function extractConditionValue(fieldName, documentData) {
+    console.log("documentData:", JSON.stringify(documentData, null, 2)); // Log the structure of documentData
+
     // Iterate through documentData to find the field matching fieldName and return its value
     for (const data of documentData) {
-        for (const section of data.sections) {
-            // Find the content with the given fieldName
-            const content = section.content.find(field => field.title === fieldName);
-            if (content && content.value !== undefined) {
-                // If content is found, return its value
-                return content.value;
+        console.log("Processing data:", JSON.stringify(data, null, 2)); // Log the current data object
+
+        if (data.sections && Array.isArray(data.sections)) { // Check if data.sections is defined and is an array
+            for (const section of data.sections) {
+                console.log("Processing section:", JSON.stringify(section, null, 2)); // Log the current section object
+
+                if (section.content && Array.isArray(section.content)) { // Check if section.content is defined and is an array
+                    // Find the content with the given fieldName
+                    const content = section.content.find(field => field.title === fieldName);
+                    if (content && content.value !== undefined) {
+                        // If content is found, return its value
+                        return content.value;
+                    }
+                }
             }
+        } else {
+            console.log("data.sections is not an array or is undefined for data:", JSON.stringify(data, null, 2));
         }
     }
-
-    // If fieldName is not found, return null
-    return null;
+    // If no matching field is found, return undefined or a default value
+    return undefined;
 }
 
 
