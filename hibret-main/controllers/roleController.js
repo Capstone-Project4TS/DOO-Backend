@@ -13,7 +13,7 @@ export async function updateAllRoles(req, res) {
         const Roles = await getRoles();
         await updateRoles(Roles);
         await deleteRoles(Roles);
-       return {message: 'Roles synchronization completed successfully'}
+       return res.status(200).json({message: 'Roles synchronization completed successfully'})
     } catch (error) {
         console.error('Error fetching roles:', error);
         return { error: 'Internal server error' };
@@ -53,7 +53,7 @@ async function updateRoles(roles) {
                 // Role exists, check if any updates needed
                 if (existingRole.roleName !== hrRole.roleName) {
                     // Update the role ID if it has changed
-                    await RoleModel.findByIdAndUpdate(existingRole._id, {roleName: hrRole.roleName });
+                    await RoleModel.findByIdAndUpdate(existingRole._id, {roleName: hrRole.roleName});
                 }
                 if (existingRole.depId !== hrRole.depId){
                     await RoleModel.findByIdAndUpdate(existingRole._id, {depId: hrRole.depId });
@@ -64,6 +64,7 @@ async function updateRoles(roles) {
                     _id: hrRole._id,
                     roleName: hrRole.roleName,
                     depId: hrRole.depId,
+                    permissions: []
                 });
                 await newRole.save();
             }
@@ -218,6 +219,56 @@ export async function getAllCommittee(req, res) {
         res.status(500).json({ error: 'Internal server error' });
     }
 }
+
+// Add Permissions to Role
+export async function addPermission(req, res) {
+    const { roleId } = req.params;
+    const { permissions } = req.body;
+  
+    RoleModel.findById(roleId)
+      .then(role => {
+        if (!role) {
+          return res.status(404).json({ message: 'Role not found' });
+        }
+  
+        // Filter out permissions that already exist in the role
+        const newPermissions = permissions.filter(permission => !role.permissions.includes(permission));
+  
+        // Add new permissions to the role
+        role.permissions = role.permissions.concat(newPermissions);
+        
+        return role.save();
+      })
+      .then(() => {
+        res.status(200).json({ message: 'Permissions added successfully' });
+      })
+      .catch(err => {
+        res.status(500).json({ error: err.message });
+      });
+  }; 
+
+  // Remove Permission from Role
+// app.delete('/roles/:roleId/permissions/:permissionName', 
+export async function removePermission (req, res) {
+    const { roleId, permissionName } = req.params;
+  
+    RoleModel.findById(roleId)
+      .then(role => {
+        if (!role) {
+          return res.status(404).json({ message: 'Role not found' });
+        }
+  
+        role.permissions = role.permissions.filter(perm => perm !== permissionName);
+        return role.save();
+      })
+      .then(() => {
+        res.status(200).json({ message: 'Permission removed successfully' });
+      })
+      .catch(err => {
+        res.status(500).json({ error: err.message });
+      });
+  };
+  
 export default {
   getRoleById,
   getAllRoles,
