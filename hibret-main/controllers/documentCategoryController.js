@@ -5,7 +5,7 @@ import Folder from '../models/folder.model.js';
 
 
 // Helper function to create folders and subfolders recursively
-const createFolderHierarchy = async (parentFolderId, year) => {
+export const createFolderHierarchy = async (parentFolderId, year) => {
     const yearFolder = new Folder({
       name: `workflows of ${year}`,
       parentFolder: parentFolderId
@@ -199,5 +199,6 @@ export default {
   getDocumentCategoryById,
   updateDocumentCategory,
   deleteDocumentCategory,
-  getCategoriesByRepositoryId
+  getCategoriesByRepositoryId,
+  createFolderHierarchy
 };

@@ -84,4 +84,4 @@ app.use('/admin', workflowTemplateRoutes, documentCategoryRoutes, subCategoryRou
   documentTemplateRoutes, roleRoutes, )
 app.use('/folder', folderRoutes)
 app.use('/repo', repoRoutes)
-app.use('/workflow', userWorkflow,workflowRoutes)
+app.use('/initiate', userWorkflow,workflowRoutes)

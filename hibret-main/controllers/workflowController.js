@@ -4,18 +4,25 @@ import User from '../models/users.model.js'
 import UserWorkflow from '../models/userWorkflow.model.js';
 import  {handleData}  from '../controllers/documentController.js'
 import Committee from '../models/committee.model.js';
+import Folder from '../models/folder.model.js';
+import createFolderHierarchy from './documentCategoryController.js'
+// Helper function to get the current quarter
+function getCurrentQuarter() {
+    const month = new Date().getMonth() + 1; // getMonth() returns 0-11
+    return Math.floor((month - 1) / 3) + 1;
+}
 
-// Controller function to create a new workflow instance
+
 export async function createWorkflow(req, res) {
-    const { workflowTemplateId, userId, reqDoc , addDoc} = req.body;
+    const { workflowTemplateId, userId, reqDoc, addDoc } = req.body;
     const files = req.files;
     let reqDocs = [], addDocs = [];
     try {
-      reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
-      addDocs = addDoc ? JSON.parse(addDoc) : [];
+        reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
+        addDocs = addDoc ? JSON.parse(addDoc) : [];
     } catch (error) {
-      console.error("Invalid JSON format in reqDoc or addDoc:", error);
-      return res.status(400).json({ message: 'Invalid JSON format' });
+        console.error("Invalid JSON format in reqDoc or addDoc:", error);
+        return res.status(400).json({ message: 'Invalid JSON format' });
     }
     try {
         // Retrieve workflow template
@@ -24,7 +31,6 @@ export async function createWorkflow(req, res) {
             return res.status(404).json({ message: 'Workflow template not found' });
         }
 
-        
         // Extract stage information
         const stages = workflowTemplate.stages;
 
@@ -33,20 +39,15 @@ export async function createWorkflow(req, res) {
         for (const [index, stage] of stages.entries()) {
             let assignedUser;
             if (stage.hasCondition) {
-                
                 // Evaluate condition and select appropriate user(s)
-                assignedUser = await assignUserWithCondition(stage,reqDocs);
-                //console.log(assignedUser)
+                assignedUser = await assignUserWithCondition(stage, reqDocs);
             } else {
                 // Select user with least workload for the role
                 assignedUser = await assignUserWithoutCondition(stage);
-                //console.log('without condition, single')
-                //console.log(assignedUser)
             }
             assignedUsers.push({ user: assignedUser, stageIndex: index });
         }
 
-        //console.log(assignedUsers)
         // Create workflow instance
         const newWorkflow = new Workflow({
             workflowTemplate: workflowTemplateId,
@@ -54,14 +55,10 @@ export async function createWorkflow(req, res) {
             assignedUsers
         });
 
-
         // Generate PDF from document data
-        const generatedDocuments = await handleData(reqDoc,addDoc , files );
+        const generatedDocuments = await handleData(reqDoc, addDoc, files);
 
-        // Update documents field of the workflow 
-        console.log(generatedDocuments.reqDocIds);
-        console.log(generatedDocuments.addDocIds);
-
+        // Update documents field of the workflow
         newWorkflow.requiredDocuments = generatedDocuments.reqDocIds;
         newWorkflow.additionalDocuments = generatedDocuments.addDocIds;
 
@@ -72,7 +69,7 @@ export async function createWorkflow(req, res) {
         const userWorkflows = [];
         for (const user of assignedUsers) {
             const { user: userId, stageIndex } = user;
-            
+
             // Update or create user workflow entry
             let userWorkflow = await UserWorkflow.findOneAndUpdate(
                 { userId },
@@ -86,15 +83,52 @@ export async function createWorkflow(req, res) {
             }
         }
 
+        // Define the criteria for the hierarchy
+        const repositoryId = workflowTemplate.repositoryId;
+        const categoryId = workflowTemplate.categoryId;
+        const subCategoryId = workflowTemplate.subCategoryId;
+        const year = new Date().getFullYear();
+        const quarter = getCurrentQuarter();
+        const month = new Date().getMonth() + 1;
+        const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
 
-        return res.status(201).json({ workflow: savedWorkflow, userWorkflows });
+        // Find or create the appropriate folder in the hierarchy
+        let folder = await Folder.findOne({ parentFolder: subCategoryId, name: `workflows of ${year}` });
+        if (!folder) {
+            await createFolderHierarchy(subCategoryId, year);
+            folder = await Folder.findOne({ parentFolder: subCategoryId, name: `workflows of ${year}` });
+        }
+
+        let quarterFolder = await Folder.findOne({ parentFolder: folder._id, name: `Quarter${quarter}` });
+        if (!quarterFolder) {
+            const quarterFolder = new Folder({
+                name: `Quarter${quarter}`,
+                parentFolder: folder._id
+            });
+            quarterFolder = await quarterFolder.save();
+        }
+
+        let monthFolder = await Folder.findOne({ parentFolder: quarterFolder._id, name: `${monthName}` });
+        if (!monthFolder) {
+            const monthFolder = new Folder({
+                name: `${monthName}`,
+                parentFolder: quarterFolder._id
+            });
+            monthFolder = await monthFolder.save();
+        }
+
+        // Add the workflow ID to the appropriate month folder
+        monthFolder.workflows.push(savedWorkflow._id);
+        await monthFolder.save();
+
+        return res.status(201).json({ workflow: savedWorkflow, userWorkflows, monthFolder });
     } catch (error) {
         console.error('Error creating workflow:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
 
-// Helper function to assign user to a s;/,tage with condition
+// Helper function to assign user to a stage with condition
 async function assignUserWithCondition(stage, documentData) {
     // Extract the condition field and its value from the stage
     console.log(documentData)
