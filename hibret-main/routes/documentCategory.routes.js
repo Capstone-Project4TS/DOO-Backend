@@ -1,22 +1,30 @@
-// routes/documentTypes.js
 
 import { Router } from 'express';
 const router = Router();
-import { createDocumentType, getAllDocumentTypes, getDocumentTypeById, updateDocumentType, deleteDocumentType} from '../controllers/documentCategoryController.js'
+import { createDocumentCategory, 
+    getAllDocumentCategory, 
+    getDocumentCategoryById, 
+    updateDocumentCategory, 
+    deleteDocumentCategory,
+    getCategoriesByRepositoryId
+} from '../controllers/documentCategoryController.js'
 
 // // Route for creating a new document type
- router.post('/category', createDocumentType);
+ router.post('/category', createDocumentCategory);
 
 // // Route for retrieving all document types
-router.get('/category', getAllDocumentTypes);
+router.get('/category', getAllDocumentCategory);
 
 // // Route for retrieving a specific document type by ID
-router.get('/category/:id', getDocumentTypeById);
+router.get('/category/:id', getDocumentCategoryById);
+
+// // Route for retrieving a specific document type by ID
+router.get('/repo/category/:repositoryId', getCategoriesByRepositoryId);
 
 // // Route for updating a document type by ID
-router.put('/category/:id', updateDocumentType);
+router.put('/category/:id', updateDocumentCategory);
 
 // // Route for deleting a document type by ID
-router.delete('/category/:id', deleteDocumentType);
+router.delete('/category/:id', deleteDocumentCategory);
 
 export default router;

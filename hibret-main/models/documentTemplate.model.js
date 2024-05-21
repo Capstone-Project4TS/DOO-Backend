@@ -7,12 +7,18 @@ const documentTemplateSchema = new Schema({
     required: true,
     unique: true // Ensure unique names
   },
+  categoryId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Category',
+  },
   subCategoryId: {
     type: Schema.Types.ObjectId,
     ref: 'SubCategory',
-    // optional: true (if applicable)
   },
-
+  repositoryId:{
+    type: Schema.Types.ObjectId,
+    ref: 'Repository'
+},
   sections: [{
     title: {
       type: String,

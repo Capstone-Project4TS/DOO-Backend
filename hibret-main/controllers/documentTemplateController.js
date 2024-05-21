@@ -3,51 +3,60 @@ import DocumentTemplate from '../models/documentTemplate.model.js';
 // Create a new document template
 export async function createDocumentTemplate(req, res) {
     try {
-        const { title, subCategoryId, sections, conditionLogic } = req.body;
-
-         // Check if a document template with the same title already exists
-         const existingTemplate = await DocumentTemplate.findOne({ title });
-         if (existingTemplate) {
-             return res.status(400).json({ message: 'A document template with the same name already exists.' });
-         }
-       
-        // Initialize an empty array to store eligible conditions
-        let eligibleConditions = [];
-
-        if(conditionLogic){
-            // Iterate over each section to check for conditional logic
-            sections.forEach(section => {
-                // Iterate over each content in the section
-                section.content.forEach(content => {
-                    // Check if the content has conditional logic
-                    if (content.conditionLogic) {
-                        // Add the content's title and type as an eligible condition
-                        eligibleConditions.push({
-                            fieldName: content.title,
-                            dataType: content.type
-                        });
-                    }
-                });
-            });
-
-        }
-
-        const newTemplate = new DocumentTemplate({
-            title,
-            subCategoryId,
-            sections,
-            conditionLogic,
-            eligibleConditions
+      const { title, subCategoryId, sections, conditionLogic, repositoryId } = req.body;
+  
+      // Input validation (required fields)
+      if (!title || !subCategoryId || !sections.length || !repositoryId) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+  
+      // Validate IDs (assuming they are ObjectIds)
+      if (!mongoose.Types.ObjectId.isValid(subCategoryId) || !mongoose.Types.ObjectId.isValid(repositoryId)) {
+        return res.status(400).json({ error: 'Invalid subcategory or repository ID' });
+      }
+  
+      // Check if a document template with the same title already exists
+      const existingTemplate = await DocumentTemplate.findOne({ title });
+      if (existingTemplate) {
+        return res.status(400).json({ message: 'A document template with the same name already exists.' });
+      }
+  
+      // Initialize an empty array to store eligible conditions
+      let eligibleConditions = [];
+  
+      if (conditionLogic) {
+        // Iterate over each section to check for conditional logic
+        sections.forEach(section => {
+          // Iterate over each content in the section
+          section.content.forEach(content => {
+            // Check if the content has conditional logic
+            if (content.conditionLogic) {
+              // Add the content's title and type as an eligible condition
+              eligibleConditions.push({
+                fieldName: content.title,
+                dataType: content.type
+              });
+            }
+          });
         });
-
-        await newTemplate.save();
-        return res.status(201).json(newTemplate);
+      }
+  
+      const newTemplate = new DocumentTemplate({
+        title,
+        subCategoryId,
+        sections,
+        conditionLogic,
+        eligibleConditions,
+        repositoryId
+      });
+  
+      await newTemplate.save();
+      return res.status(201).json(newTemplate);
     } catch (err) {
-        console.error('Error in createDocumentTemplate:', err);
-        return res.status(400).json({ message: 'Failed to create document template.' });
+      console.error('Error in createDocumentTemplate:', err);
+      return res.status(400).json({ message: 'Failed to create document template.' });
     }
-}
-
+  }
 
 // Get all document templates
 export async function getAllDocumentTemplates(req, res) {

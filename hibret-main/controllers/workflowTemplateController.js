@@ -5,25 +5,23 @@ import mongoose from 'mongoose';
 // Create new workflow template
 export const createWorkflowTemplate = async (req, res) => {
   try {
-    const { name, categoryId, subCategoryId, stages, requiredDocumentTemplates,additionalDoc } = req.body;
+    const { name, categoryId, subCategoryId, stages, requiredDocumentTemplates, additionalDoc, repositoryId } = req.body;
 
     // Input validation (required fields)
-    if (!name || !categoryId || !subCategoryId || !stages.length || !requiredDocumentTemplates.length) {
+    if (!name || !categoryId || !subCategoryId || !stages.length || !requiredDocumentTemplates.length || !repositoryId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Validate category and subcategory IDs (assuming they are ObjectIds)
-    if (!mongoose.Types.ObjectId.isValid(categoryId) || !mongoose.Types.ObjectId.isValid(subCategoryId)) {
-      return res.status(400).json({ error: 'Invalid category or subcategory ID' });
+    // Validate IDs (assuming they are ObjectIds)
+    if (!mongoose.Types.ObjectId.isValid(categoryId) || !mongoose.Types.ObjectId.isValid(subCategoryId) || !mongoose.Types.ObjectId.isValid(repositoryId)) {
+      return res.status(400).json({ error: 'Invalid category, subcategory, or repository ID' });
     }
 
     // Validate stages
     stages.forEach(stage => {
-
       if (!stage.stageTitle || typeof stage.stageTitle !== 'string') {
         throw new Error('Invalid stage data: Missing or invalid stage title');
       }
-
 
       // Validate condition
       if (stage.hasCondition) {
@@ -57,11 +55,9 @@ export const createWorkflowTemplate = async (req, res) => {
         }
       }
 
-
       // Add validation for roles in permissions and specific condition types (if needed)
       // ... (your additional validation logic here)
     });
-
 
     const newTemplate = new WorkflowTemplate({
       name,
@@ -69,10 +65,12 @@ export const createWorkflowTemplate = async (req, res) => {
       subCategoryId,
       stages,
       requiredDocumentTemplates,
-      additionalDoc
+      additionalDoc,
+      repositoryId
     });
 
     const savedTemplate = await newTemplate.save();
+
     res.status(201).json(savedTemplate);
   } catch (err) {
     console.error('Error creating workflow template:', err);

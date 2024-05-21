@@ -10,6 +10,7 @@ import subCategoryRoutes from './routes/subCategory.routes.js'
 import workflowTemplateRoutes from './routes/workflowTemplate.route.js'
 import folderRoutes from './routes/folder.routes.js'
 import roleRoutes from './routes/role.routes.js';
+import repoRoutes from './routes/repository.routes.js'
 import userWorkflow from './routes/userWorkflow.routes.js'
 import workflowRoutes from './routes/workflow.routes.js'
 import dotenv from 'dotenv';
@@ -80,6 +81,7 @@ connect().then(() => {
 app.use('/api', router)
 app.use('/documents', documentRoutes);
 app.use('/admin', workflowTemplateRoutes, documentCategoryRoutes, subCategoryRoutes,
-  documentTemplateRoutes, roleRoutes, workflowRoutes, userWorkflow)
+  documentTemplateRoutes, roleRoutes, )
 app.use('/folder', folderRoutes)
-app.use('/workflow', userWorkflow)
+app.use('/repo', repoRoutes)
+app.use('/workflow', userWorkflow,workflowRoutes)

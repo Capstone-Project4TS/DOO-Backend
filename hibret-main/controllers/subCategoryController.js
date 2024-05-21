@@ -4,14 +4,14 @@ import SubCategory from "../models/documentSubCategory.model.js";
 // Controller function to create a new sub-category
 export const createSubCategory = async (req, res) => {
     try {
-      const { name, description, categoryId } = req.body;
+      const { name, categoryId } = req.body;
   
       // Input validation (optional)
       if (!name || !categoryId) {
         return res.status(400).json({ error: 'Missing required fields: name and categoryId' });
       }
   
-      const newSubCategory = new SubCategory({ name, description, categoryId });
+      const newSubCategory = new SubCategory({ name, categoryId });
       const savedSubCategory = await newSubCategory.save();
       res.status(201).json(savedSubCategory);
     } catch (error) {
@@ -19,6 +19,7 @@ export const createSubCategory = async (req, res) => {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+  
   
   // Controller function to retrieve all sub-categories
 export const getAllSubCategories = async (req, res) => {
@@ -63,11 +64,11 @@ export const getAllSubCategories = async (req, res) => {
   // Controller function to update a sub-category by ID
   export const updateSubCategory = async (req, res) => {
     try {
-      const { name, description } = req.body;
+      const { name } = req.body;
   
       const updatedSubCategory = await SubCategory.findByIdAndUpdate(
         req.params.id,
-        { name, description },
+        { name },
         { new: true }
       );
       if (!updatedSubCategory) {
