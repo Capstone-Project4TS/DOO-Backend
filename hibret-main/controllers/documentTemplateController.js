@@ -61,8 +61,23 @@ export async function createDocumentTemplate(req, res) {
 // Get all document templates
 export async function getAllDocumentTemplates(req, res) {
     try {
-        const templates = await DocumentTemplate.find().populate('subCategoryId'); // Populate subcategory details (optional)
-        res.json(templates);
+        const templates = await DocumentTemplate.find()
+      .populate({
+        path: 'subCategoryId',
+        populate: {
+          path: 'categoryId',
+          select: 'name'
+        },
+        select: 'name categoryId'
+      });
+
+    const simplifiedTemplates = templates.map(template => ({
+      documentTitle: template.title,
+      subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
+      categoryName: template.subCategoryId && template.subCategoryId.categoryId ? template.subCategoryId.categoryId.name : null
+    }));
+
+    res.status(200).json(simplifiedTemplates);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

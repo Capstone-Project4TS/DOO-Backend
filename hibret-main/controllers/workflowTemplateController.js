@@ -81,8 +81,17 @@ export const createWorkflowTemplate = async (req, res) => {
 // Get all workflow templates
 export async function getAllWorkflowTemplates(req, res) {
   try {
-    const templates = await WorkflowTemplate.find();
-    res.json(templates);
+    const templates = await WorkflowTemplate.find()
+      .populate({ path: 'categoryId', select: 'name' })
+      .populate({ path: 'subCategoryId', select: 'name' });
+
+    const simplifiedTemplates = templates.map(template => ({
+      workflowName: template.name,
+      categoryName: template.categoryId ? template.categoryId.name : null,
+      subCategoryName: template.subCategoryId ? template.subCategoryId.name : null
+    }));
+
+    res.status(200).json(simplifiedTemplates);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

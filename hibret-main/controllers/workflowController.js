@@ -672,6 +672,33 @@ export const getWorkflowDetails = async (req, res) => {
     }
 };
 
+export const getAllWorkflowsOfOwner = async (req, res) => {
+    const { userId } = req.params;
+  
+    try {
+      const workflows = await Workflow.find({ user: userId })
+        .populate('workflowTemplate.name')
+        .populate('status')
+        .populate('currentStageIndex')
+        .populate('assignedUsers.user')
+        .populate('assignedUsers.committee')
+        .populate('comments.fromUser')
+        .populate('comments.toUser')
+        .populate('comments.visibleTo')
+        .populate('requiredDocuments')
+        .populate('additionalDocuments');
+  
+      if (!workflows || workflows.length === 0) {
+        return res.status(404).json({ message: 'No workflows found for this user' });
+      }
+  
+      res.status(200).json(workflows);
+    } catch (error) {
+      console.error('Error fetching workflows:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  };
+
 export default {
     createWorkflow,
     getAllWorkflows,
