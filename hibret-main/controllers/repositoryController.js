@@ -1,12 +1,13 @@
 import Repository from "../models/repository.model.js";
 import { getDeps } from "./roleController.js";
+import UserModel from '../models/users.model.js';
 
 export async function createRepositories() {
     try {
       const Deps = await getDeps();
       if (Deps) {
         for (const dep of Deps) {
-          const { name } = dep;
+          const { name ,_id} = dep;
   
           // Check if repository exists
           const existingRepo = await Repository.findOne({ name });
@@ -15,6 +16,7 @@ export async function createRepositories() {
             // Create new repository
             const newRepo =new Repository({
               name: name,
+              departmentId: _id,
               categories: [], // Initialize with empty categories
             });
   
@@ -46,41 +48,64 @@ export async function getRepos(req, res) {
 // Controller function to fetch repositories with folders and workflows
 export const fetchRepositories = async (req, res) => {
     try {
-        // Retrieve repositories from the database and populate categories, subcategories, folders, and workflows
-        const repositories = await Repository.find().populate({
-            path: 'categories',
-            populate: {
-                path: 'subcategories',
-                populate: {
-                    path: 'folders',
-                    populate: {
-                        path: 'workflows'
-                    }
-                }
-            }
+        // Validate userId from the token
+        if (!req.user || !req.user.userId) {
+          return res.status(401).json({ error: 'Unauthorized access, no user ID found in token.' });
+        }
+    
+        // Retrieve user and role information
+        const user = await UserModel.findById(req.user.userId).populate({
+          path: 'role_id',
+          populate: { path: 'depId' }
         });
-
-        // Structure the data with repositories, categories, subcategories, folders, and workflows
+    
+        if (!user) {
+          return res.status(404).json({ error: 'User not found.' });
+        }
+    
+        if (!user.role_id || !user.role_id.depId) {
+          return res.status(400).json({ error: 'User does not have an assigned department.' });
+        }
+    
+        const departmentId = user.role_id.depId._id;
+    
+        // Retrieve repositories by department
+        const repositories = await Repository.find({ department: departmentId }).populate({
+          path: 'categories',
+          populate: {
+            path: 'subcategories',
+            populate: {
+              path: 'folders',
+              populate: {
+                path: 'workflows'
+              }
+            }
+          }
+        });
+    
+        if (!repositories || repositories.length === 0) {
+          return res.status(404).json({ error: 'No repositories found for this department.' });
+        }
+    
         const hierarchicalData = repositories.map(repository => ({
-            name: repository.name,
-            categories: repository.categories.map(category => ({
-                name: category.name,
-                subcategories: category.subcategories.map(subcategory => ({
-                    name: subcategory.name,
-                    folders: subcategory.folders.map(folder => ({
-                        name: folder.name,
-                        workflows: folder.workflows.map(workflow => workflow.name)
-                    }))
-                }))
+          name: repository.name,
+          categories: repository.categories.map(category => ({
+            name: category.name,
+            subcategories: category.subcategories.map(subcategory => ({
+              name: subcategory.name,
+              folders: subcategory.folders.map(folder => ({
+                name: folder.name,
+                workflows: folder.workflows.map(workflow => workflow.name)
+              }))
             }))
+          }))
         }));
-
-        // Return the hierarchical data with repositories, categories, subcategories, folders, and workflows to the frontend
+    
         return res.status(200).json(hierarchicalData);
-    } catch (error) {
+      } catch (error) {
         console.error('Error fetching repositories with folders and workflows:', error);
-        return res.status(500).json({ error: 'Internal server error' });
-    }
+        return res.status(500).json({ error: 'Internal server error.' });
+      }
 };
 
 

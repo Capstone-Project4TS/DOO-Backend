@@ -9,7 +9,8 @@ import { createWorkflow, getAllWorkflows,deleteWorkflow,updateWorkflow,getWorkfl
   rejectWorkflow,
   ownerEditAndMoveForward,
   getWorkflowDetails,
-  getAllWorkflowsOfOwner
+  getAllWorkflowsOfOwner,
+  getAllRequiredDocuments
  } from '../controllers/workflowController.js';
 
 
@@ -18,6 +19,7 @@ router.post('/workflows',upload.array('files'), createWorkflow);
 
 // Route to fetch all workflow instances
 router.get('/workflows', getAllWorkflows);
+router.get('/reqDoc/workflows/:id', getAllRequiredDocuments);
 
 // Route to get all the workflows of an owner
 router.get('/workflows/owner/:userId', getAllWorkflowsOfOwner)

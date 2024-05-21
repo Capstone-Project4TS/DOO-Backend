@@ -6,6 +6,11 @@ const repoSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    departmentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Department',
+        required: true,
+      },
     categories: [
         {type: mongoose.Schema.Types.ObjectId,
         ref: 'Category'  }    

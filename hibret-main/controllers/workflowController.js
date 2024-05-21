@@ -6,6 +6,7 @@ import  {handleData}  from '../controllers/documentController.js'
 import Committee from '../models/committee.model.js';
 import Folder from '../models/folder.model.js';
 import createFolderHierarchy from './documentCategoryController.js'
+
 // Helper function to get the current quarter
 function getCurrentQuarter() {
     const month = new Date().getMonth() + 1; // getMonth() returns 0-11
@@ -287,7 +288,29 @@ async function assignUserWithoutCondition(stage) {
     return potentialApprovers;
 }
 
+// Get all workflow templates
+export async function getAllRequiredDocuments(req, res) {
 
+    try {
+      const template = await Workflow.findById(req.params.id).populate('requiredDocuments').populate('additionalDocuments');
+      console.log("hello")
+      if (!template) {
+        return res.status(404).json({ message: 'Workflow template not found' });
+      }
+  
+      console.log('Template:', template);
+  
+      const documents = template.requiredDocuments;
+      const additional = template.additionalDocuments;
+  
+  
+      // Send document contents array as response
+      res.status(200).json({ documents, additional });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+  
 // Controller function to fetch all workflow instances
 export const getAllWorkflows = async (req, res) => {
     try {
@@ -736,4 +759,5 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
 export default {
     createWorkflow,
     getAllWorkflows,
+    getAllRequiredDocuments
 };
