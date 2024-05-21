@@ -16,11 +16,11 @@ const roleSchema = new mongoose.Schema({
     ref: 'Department', 
     required: true 
   },
-  permissions: {
-    type: Object,
+  permissions: [{
+    type: String,
     required: true,
-    default: {} // Set default to empty object to avoid validation errors
-  },
+    unique: true // Ensure unique permissions within a role
+  }]
 });
 
 const Role = mongoose.model('Role', roleSchema);
