@@ -813,7 +813,6 @@ export const getWorkflowDetails = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 export const getAllWorkflowsOfOwner = async (req, res) => {
   const { userId } = req.params;
 
