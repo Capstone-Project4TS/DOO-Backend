@@ -10,14 +10,12 @@ export function validateUser(user) {
   return schema.validate(user);
 }
 
-
 export function validateLoginInput(input) {
   const schema = Joi.object({
     // username: Joi.string().min(5).max(15).required(),
     email: Joi.string().min(10).max(50).required(),
     password: Joi.string().min(5).max(255).required(),
   });
-
 
   return schema.validate(input);
 }
@@ -26,7 +24,7 @@ export function validateLoginInput(input) {
 const schema = Joi.object({
   username: Joi.string().alphanum().min(5).max(50).required(),
   email: Joi.string().email().required(),
-  role_id: Joi.string().pattern(new RegExp('^[0-9a-fA-F]{24}$')).required(), // Assuming role_id is a valid MongoDB ObjectId
+  role_id: Joi.string().pattern(new RegExp("^[0-9a-fA-F]{24}$")).required(), // Assuming role_id is a valid MongoDB ObjectId
 });
 
 // Function to validate input against the schema
@@ -49,7 +47,7 @@ export function validatePassword(input) {
   return schema.validate(input);
 }
 
-export default{
+export default {
   validateUser,
   validateLoginInput,
   validateRegisterInput,
