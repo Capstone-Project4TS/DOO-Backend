@@ -3,7 +3,6 @@ import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import User from "../models/users.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
-import Committee from "../models/committee.model.js";
 import Folder from "../models/folder.model.js";
 import createFolderHierarchy from "./documentCategoryController.js";
 

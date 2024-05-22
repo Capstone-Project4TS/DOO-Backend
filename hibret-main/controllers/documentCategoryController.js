@@ -83,6 +83,14 @@ export const getAllDocumentCategory = async (req, res) => {
     const documentCategories = await DocumentCategory.find().populate(
       "subcategories"
     );
+     // Sanitize the response to include only the names
+    //  const sanitizedCategories = documentCategories.map(category => ({
+    //   name: category.name,
+    //   subcategories: category.subcategories.map(subcategory => ({
+    //     name: subcategory.name
+    //   }))
+    // }));
+
     res.status(200).json(documentCategories);
   } catch (error) {
     console.error("Error retrieving document categories:", error);
