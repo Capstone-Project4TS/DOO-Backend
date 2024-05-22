@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const subCategorySchema = new mongoose.Schema({
   _id: { type: mongoose.Schema.Types.ObjectId, required: true, auto: true },
@@ -8,15 +8,17 @@ const subCategorySchema = new mongoose.Schema({
   },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category',
+    ref: "Category",
     required: true,
   },
-  folders: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Folder',
-    default: []
-  }]
+  folders: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Folder",
+      default: [],
+    },
+  ],
 });
 
-const SubCategory = mongoose.model('SubCategory', subCategorySchema);
+const SubCategory = mongoose.model("SubCategory", subCategorySchema);
 export default SubCategory;

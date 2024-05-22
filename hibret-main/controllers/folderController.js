@@ -1,5 +1,37 @@
 import Folder from '../models/folder.model.js'
 
+
+
+// Helper function to create folders and subfolders recursively
+export const createFolderHierarchy = async (parentFolderId, year) => {
+  const yearFolder = new Folder({
+    name: `workflows of ${year}`,
+    parentFolder: parentFolderId
+  });
+  const savedYearFolder = await yearFolder.save();
+
+  const quarters = ['Quarter1', 'Qquarter2', 'Qquarter3', 'Qquarter4'];
+  for (const q of quarters) {
+    const quarterFolder = new Folder({
+      name: `${q}`,
+      parentFolder: savedYearFolder._id
+    });
+    const savedQuarterFolder = await quarterFolder.save();
+
+    for (let m = 1; m <= 3; m++) {
+      const monthName = new Date(year, (quarters.indexOf(q) * 3) + m - 1).toLocaleString('default', { month: 'long' });
+      const monthFolder = new Folder({
+        name: `${monthName}`,
+        parentFolder: savedQuarterFolder._id
+      });
+      await monthFolder.save();
+    }
+  }
+
+  return savedYearFolder._id; // Return the ID of the year folder
+};
+
+
 // Controller function to create a new folder
 export const createFolder = async (req, res) => {
   try {

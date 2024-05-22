@@ -65,11 +65,11 @@ const generatePDF = async (formData, urls, pdfName) => {
   console.log(urls);
   doc.pipe(fs.createWriteStream(pdfPath));
 
-   // Replace upload fields with URLs in formData
-   formData.sections.forEach(section => {
-    section.content.forEach(content => {
-      if (content.type === 'upload' && Array.isArray(content.upload)) {
-        content.upload = content.upload.map(upload => urls[upload] || upload);
+  // Replace upload fields with URLs in formData
+  formData.sections.forEach((section) => {
+    section.content.forEach((content) => {
+      if (content.type === "upload" && Array.isArray(content.upload)) {
+        content.upload = content.upload.map((upload) => urls[upload] || upload);
       }
     });
   });
@@ -240,26 +240,26 @@ export async function getUploadedDoc(req, res) {
   }
 }
 
-
-export async function handleData(reqDoc, addDoc,files) {
+export async function handleData(reqDoc, addDoc, files) {
   try {
     // const { reqDoc, addDoc } = req.body;
-    console.log('reqDoc:', reqDoc);
-    console.log('addDoc:', addDoc);
+    console.log("reqDoc:", reqDoc);
+    console.log("addDoc:", addDoc);
     // const files = req.files || [];
-    console.log('Files:', files);
+    console.log("Files:", files);
 
     if (!reqDoc && reqDoc.length === 0) {
-      return res.status(400).json({ message: 'No data provided' });
+      return res.status(400).json({ message: "No data provided" });
     }
 
-    let reqDocs = [], addDocs = [];
+    let reqDocs = [],
+      addDocs = [];
     try {
       reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
       addDocs = addDoc ? JSON.parse(addDoc) : [];
     } catch (error) {
       console.error("Invalid JSON format in reqDoc or addDoc:", error);
-      return res.status(400).json({ message: 'Invalid JSON format' });
+      return res.status(400).json({ message: "Invalid JSON format" });
     }
 
     const fileUrls = {};
@@ -267,28 +267,29 @@ export async function handleData(reqDoc, addDoc,files) {
       for (const doc of docs) {
         for (const section of doc.sections) {
           for (const content of section.content) {
-            if (content.type === 'upload' && content.upload) {
+            if (content.type === "upload" && content.upload) {
               for (const upload of content.upload) {
-                const file = files.find(file => upload.includes(file.originalname));
-             
+                const file = files.find((file) =>
+                  upload.includes(file.originalname)
+                );
+
                 if (file) {
                   try {
                     const url = await uploadFilesToCloudinary([file]);
-                   
+
                     if (url.length > 0) {
                       fileUrls[upload] = url[0];
-                      console.log(fileUrls)
+                      console.log(fileUrls);
                       console.log(`Mapped URL: ${upload} -> ${url[0]}`);
                     }
                   } catch (error) {
-                    console.error('Error uploading file to Cloudinary:', error);
+                    console.error("Error uploading file to Cloudinary:", error);
                     throw error;
                   }
                 } else {
                   console.log(`File not found for upload: ${upload}`);
                 }
               }
-              
             }
           }
         }
@@ -315,7 +316,7 @@ export async function handleData(reqDoc, addDoc,files) {
           templateId: doc.templateId,
           title: doc.title,
           sections: doc.sections,
-          filePath: [pdfUrl]
+          filePath: [pdfUrl],
         });
 
         const savedDocument = await newDocument.save();
@@ -333,13 +334,13 @@ export async function handleData(reqDoc, addDoc,files) {
     }
 
     return {
-      message: 'PDFs created, uploaded, and saved to the database successfully',
+      message: "PDFs created, uploaded, and saved to the database successfully",
       reqDocIds: savedReqDocIds,
       addDocIds: savedAddDocIds,
     };
   } catch (error) {
-    console.error('Error handling form data:', error);
-    return { message: 'Internal server error' };
+    console.error("Error handling form data:", error);
+    return { message: "Internal server error" };
   }
 }
 

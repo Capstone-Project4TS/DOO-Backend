@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const roleSchema = new mongoose.Schema({
   _id: {
@@ -9,20 +9,22 @@ const roleSchema = new mongoose.Schema({
   roleName: {
     type: String,
     required: true,
-    unique: true // Ensure unique role names
+    unique: true, // Ensure unique role names
   },
-  depId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Department', 
-    required: true 
-  },
-  permissions: [{
-    type: String,
+  depId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Department",
     required: true,
-    unique: true // Ensure unique permissions within a role
-  }]
+  },
+  permissions: [
+    {
+      type: String,
+      required: true,
+      unique: true, // Ensure unique permissions within a role
+    },
+  ],
 });
 
-const Role = mongoose.model('Role', roleSchema);
+const Role = mongoose.model("Role", roleSchema);
 
 export default Role;
