@@ -4,6 +4,7 @@ import User from '../models/users.model.js'
 import UserWorkflow from '../models/userWorkflow.model.js';
 import  {handleData}  from '../controllers/documentController.js'
 import Committee from '../models/committee.model.js';
+import Document from '../models/document.model.js';
 
 // Controller function to create a new workflow instance
 export async function createWorkflow(req, res) {
@@ -625,20 +626,43 @@ export const getWorkflowDetails = async (req, res) => {
         const workflow = await Workflow.findById(workflowId)
             .populate('workflowTemplate')
             .populate('user')
-            .populate('documents.templateId')
-            .populate('assignedUsers')
-            // .populate('assignedUsers.committee')
-            .populate('comments.fromUser')
-            .populate('comments.toUser')
-            .populate('comments.visibleTo');
-
+            .populate({
+                path: 'requiredDocuments',
+                select: 'title filePath',
+                model: Document
+            })
+            .populate({
+                path: 'additionalDocuments',
+                select: 'title filePath',
+                model: Document
+            })
+            .populate({
+                path: 'assignedUsers.user',
+                select: 'name'
+            })
+            // .populate({
+            //     path: 'assignedUsers.committee',
+            //     select: 'name'
+            // })
+            .populate({
+                path: 'comments.fromUser',
+                select: 'name'
+            })
+            .populate({
+                path: 'comments.toUser',
+                select: 'name'
+            })
+            .populate({
+                path: 'comments.visibleTo',
+                select: 'name'
+            });
 
         if (!workflow) {
             return res.status(404).json({ message: 'Workflow not found' });
         }
 
         // Check if user is assigned to the workflow and active in the current stage
-        const assignedUser = workflow.assignedUsers.find(user => user.user.toString() === userId);
+        const assignedUser = workflow.assignedUsers.find(user => user.user && user.user._id.toString() === userId);
         const isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
 
         // Check user permissions and determine button visibility
@@ -646,22 +670,58 @@ export const getWorkflowDetails = async (req, res) => {
         const currentStageIndex = workflow.currentStageIndex;
         const canMoveForward = isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
         const canMoveBackward = isActiveUser && currentStageIndex > 0;
-        const canApprove = isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1; 
+        const canApprove = isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1;
 
         // Determine comment visibility based on user role
         const comments = isOwner ? workflow.comments : workflow.comments.filter(comment => comment.visibleTo.some(user => user._id.toString() === userId));
 
+        // Get the current stage user or committee name
+        let currentStageUserOrCommitteeName = '';
+        const currentStage = workflow.assignedUsers.find(stage => stage.stageIndex === currentStageIndex);
+        if (currentStage) {
+            const id = currentStage.user || currentStage.committee;
+            if (id) {
+                // Check if the ID belongs to a User
+                const user = await User.findById(id).select('username');
+                if (user) {
+                    currentStageUserOrCommitteeName = user.name;
+                } else {
+                    // If not a user, check if it belongs to a Committee
+                    const committee = await Committee.findById(id).select('name');
+                    if (committee) {
+                        currentStageUserOrCommitteeName = committee.name;
+                    }
+                }
+            }
+        } 
+
+        // Log the current stage information for debugging
+        console.log('Current Stage:', currentStage);
+        console.log('Current Stage User/Committee ID:', currentStage ? (currentStage.user || currentStage.committee) : null);
+        console.log('Current Stage User/Committee Name:', currentStageUserOrCommitteeName);
+
         // Prepare response data
         const responseData = {
-            workflow,
+            workflow: {
+                status: workflow.status,
+                currentStageIndex: workflow.currentStageIndex,
+                requiredDocuments: workflow.requiredDocuments.map(doc => ({
+                    name: doc.title,
+                    filePath: doc.filePath
+                })),
+                additionalDocuments: workflow.additionalDocuments.map(doc => ({
+                    name: doc.title,
+                    filePath: doc.filePath
+                })),
+                comments
+            },
+            currentStageUserOrCommitteeName,
             buttons: {
                 canMoveForward,
                 canMoveBackward,
                 isOwner,
                 canApprove
-                // Add more button visibility flags as needed...
-            },
-            comments
+            }
         };
 
         // Return the workflow details to the client
@@ -671,7 +731,6 @@ export const getWorkflowDetails = async (req, res) => {
         return res.status(500).json({ error: 'Internal server error' });
     }
 };
-
 export const getAllWorkflowsOfOwner = async (req, res) => {
     const { userId } = req.params;
   

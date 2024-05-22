@@ -63,6 +63,7 @@ export async function getAllDocumentTemplates(req, res) {
       });
 
     const simplifiedTemplates = templates.map(template => ({
+      _id: template._id,
       documentTitle: template.title,
       subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
       categoryName: template.subCategoryId && template.subCategoryId.categoryId ? template.subCategoryId.categoryId.name : null

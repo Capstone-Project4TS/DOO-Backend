@@ -88,6 +88,7 @@ export async function getAllWorkflowTemplates(req, res) {
       .populate({ path: 'subCategoryId', select: 'name' });
 
     const simplifiedTemplates = templates.map(template => ({
+      _id: template._id,
       workflowName: template.name,
       categoryName: template.categoryId ? template.categoryId.name : null,
       subCategoryName: template.subCategoryId ? template.subCategoryId.name : null
