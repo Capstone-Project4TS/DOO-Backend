@@ -1,6 +1,5 @@
 import DocumentCategory from "../models/documentCategory.model.js";
 import SubCategory from "../models/documentSubCategory.model.js";
-import Repository from "../models/repository.model.js";
 import Folder from "../models/folder.model.js";
 import { createFolderHierarchy } from "./folderController.js";
 import { getDeps } from "./roleController.js";
@@ -9,8 +8,34 @@ export const createDocumentCategory = async (req, res) => {
   try {
     const { name, subcategories, depId } = req.body;
 
+    // Get the department name
+    const deps = await getDeps();
+    const department = deps.find((dep) => dep._id.toString() === depId);
+    if (!department) {
+      return res.status(404).json({ error: "Department not found" });
+    }
+
+    const departmentName = department.name;
+
+    // Create the top-level folder for the department
+    const departmentFolder = new Folder({
+      name: departmentName,
+      parentFolder: null, // Top-level folder has no parent
+    });
+    const savedDepartmentFolder = await departmentFolder.save();
+
+    // Create main folder for the document category under the department folder
+    const mainCategoryFolder = new Folder({
+      name: name,
+      parentFolder: savedDepartmentFolder._id,
+    });
+    const savedMainCategoryFolder = await mainCategoryFolder.save();
+
     // Create new document category
-    const newDocumentCategory = new DocumentCategory({ name });
+    const newDocumentCategory = new DocumentCategory({
+      name,
+      depId,
+    });
     const savedDocumentCategory = await newDocumentCategory.save();
 
     // Create subcategories and their folder hierarchies
@@ -18,19 +43,25 @@ export const createDocumentCategory = async (req, res) => {
     const currentYear = new Date().getFullYear();
 
     for (const subcategoryName of subcategories) {
+      // Create subcategory folder under the main category folder
+      const subCategoryFolder = new Folder({
+        name: subcategoryName,
+        parentFolder: savedMainCategoryFolder._id,
+      });
+      const savedSubCategoryFolder = await subCategoryFolder.save();
+
+      // Create folder hierarchy for the current year under the subcategory folder
+      const yearFolderId = await createFolderHierarchy(
+        savedSubCategoryFolder._id,
+        currentYear
+      );
+
       const newSubCategory = new SubCategory({
         name: subcategoryName,
         categoryId: savedDocumentCategory._id,
       });
       const savedSubCategory = await newSubCategory.save();
 
-      // Create folder hierarchy for the current year
-      const yearFolderId = await createFolderHierarchy(
-        savedSubCategory._id,
-        currentYear
-      );
-      savedSubCategory.folders.push(yearFolderId); // Update folders field with the ID of the year folder
-      await savedSubCategory.save();
       savedSubCategories.push(savedSubCategory);
     }
 
@@ -40,30 +71,6 @@ export const createDocumentCategory = async (req, res) => {
     );
     await savedDocumentCategory.save();
 
-    // Find or create the repository and update it with the new category
-    let repository = await Repository.findOne({ departmentId: depId });
-    if (!repository) {
-      // If repository doesn't exist, create a new one
-      const deps = await getDeps();
-      const department = deps.find((dep) => dep._id.toString() === depId);
-      if (!department) {
-        return res.status(404).json({ error: "Department not found" });
-      }
-
-      // Create new repository with department name and ID
-      repository = new Repository({
-        name: department.name,
-        departmentId: depId,
-        categories: [savedDocumentCategory._id], // Add the new category directly
-      });
-      await repository.save(); // Save the new repository
-    } else {
-      // If repository exists, add the new category to its categories
-      repository.categories.push(savedDocumentCategory._id);
-      await repository.save(); // Save the updated repository
-    }
-    savedDocumentCategory.repositoryId = repository._id;
-    await savedDocumentCategory.save();
     res.status(201).json({
       category: savedDocumentCategory,
       subcategories: savedSubCategories,
@@ -77,19 +84,13 @@ export const createDocumentCategory = async (req, res) => {
   }
 };
 
+
 // Controller function to retrieve all document categories with subcategories
 export const getAllDocumentCategory = async (req, res) => {
   try {
     const documentCategories = await DocumentCategory.find().populate(
       "subcategories"
     );
-     // Sanitize the response to include only the names
-    //  const sanitizedCategories = documentCategories.map(category => ({
-    //   name: category.name,
-    //   subcategories: category.subcategories.map(subcategory => ({
-    //     name: subcategory.name
-    //   }))
-    // }));
 
     res.status(200).json(documentCategories);
   } catch (error) {

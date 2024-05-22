@@ -12,9 +12,9 @@ const categorySchema = new mongoose.Schema({
       ref: "SubCategory",
     },
   ],
-  repositoryId: {
+  depId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Repository",
+    ref: "Department",
   },
 },{
   timestamps:true,
