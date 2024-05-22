@@ -65,11 +65,11 @@ const generatePDF = async (formData, urls, pdfName) => {
   console.log(urls);
   doc.pipe(fs.createWriteStream(pdfPath));
 
-   // Replace upload fields with URLs in formData
-   formData.sections.forEach(section => {
-    section.content.forEach(content => {
-      if (content.type === 'upload' && Array.isArray(content.upload)) {
-        content.upload = content.upload.map(upload => urls[upload] || upload);
+  // Replace upload fields with URLs in formData
+  formData.sections.forEach((section) => {
+    section.content.forEach((content) => {
+      if (content.type === "upload" && Array.isArray(content.upload)) {
+        content.upload = content.upload.map((upload) => urls[upload] || upload);
       }
     });
   });
@@ -240,205 +240,26 @@ export async function getUploadedDoc(req, res) {
   }
 }
 
-// export async function handleData(req, res) {
-//   try {
-//     const { reqDoc, addDoc } = req.body;
-//     console.log("reqDoc:", reqDoc);
-//     console.log("addDoc:", addDoc);
-//     const files = req.files || [];
-//     console.log(files);
-
-//     if (!reqDoc && reqDoc.length == 0) {
-//       return res.status(400).json({ message: "No data provided" });
-//     }
-
-//     let reqDocs = [],
-//       addDocs = [];
-//     try {
-//       reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
-//       addDocs = addDoc ? JSON.parse(addDoc) : [];
-//     } catch (error) {
-//       console.error("Invalid JSON format in reqDoc:", error);
-//       return res.status(400).json({ message: "Invalid JSON format" });
-//     }
-
-//     // Step 1: Upload files and gather URLs
-//     const fileUrls = {};
-//     const processDocs = async (docs) => {
-//       for (const doc of docs) {
-//         for (const section of doc.sections) {
-//           for (const content of section.content) {
-//             if (content.type === "upload" && content.upload) {
-//               for (const upload of content.upload) {
-//                 const file = files.find((file) =>
-//                   upload.includes(file.originalname)
-//                 );
-//                 if (file) {
-//                   try {
-//                     const url = await uploadFilesToCloudinary([file]);
-//                     if (url.length > 0) {
-//                       fileUrls[upload] = url[0];
-//                       console.log(`Mapped URL: ${upload} -> ${url[0]}`);
-//                     }
-//                   } catch (error) {
-//                     console.error("Error uploading file to Cloudinary:", error);
-//                     throw error;
-//                   }
-//                 } else {
-//                   console.log(`File not found for upload: ${upload}`);
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     };
-
-//     // Process reqDocs
-//     await processDocs(reqDocs);
-
-//     // Process addDocs if provided
-//     if (addDocs.length > 0) {
-//       await processDocs(addDocs);
-//     }
-
-//     // Step 2: Map the template with actual values
-//     const mapTemplateWithValues = async (doc) => {
-//       const template = await DocumentTemplate.findById(doc.templateId);
-//       if (!template) {
-//         throw new Error(`Template not found for ID: ${doc.templateId}`);
-//       }
-
-//       const mappedDoc = {
-//         templateId: doc.templateId,
-//         title: template.title,
-//         sections: template.sections.map((templateSection) => {
-//           const docSection =
-//             doc.sections.find(
-//               (section) => section.title === templateSection.title
-//             ) || {};
-//           return {
-//             title: templateSection.title,
-//             content: templateSection.content.map((templateContent) => {
-//               const docContent =
-//                 (docSection.content || []).find(
-//                   (content) => content.title === templateContent.title
-//                 ) || {};
-//               let mappedContent = {
-//                 ...templateContent.toObject(),
-//                 value: docContent.value || templateContent.value,
-//               };
-//               // Replace the upload placeholders with actual URLs
-//               if (mappedContent.type === "upload" && docContent.upload) {
-//                 mappedContent.upload = docContent.upload.map(
-//                   (upload) => fileUrls[upload] || upload
-//                 );
-//                 console.log(`Replaced URLs in content: ${JSON.stringify(mappedContent.upload)}`);
-//               }
-//               return mappedContent;
-//             }),
-//           };
-//         }),
-//       };
-//       return mappedDoc;
-//     };
-
-//     const mappedReqDocs = await Promise.all(
-//       reqDocs.map((doc) => mapTemplateWithValues(doc))
-//     );
-//     const mappedAddDocs =
-//       addDocs.length > 0
-//         ? await Promise.all(addDocs.map((doc) => mapTemplateWithValues(doc)))
-//         : [];
-
-//     // Save raw info in Document model before generating PDFs
-//     const saveRawDocuments = async (docs) => {
-//       for (const doc of docs) {
-//         const newDocument = new Document({
-//           templateId: doc.templateId,
-//           title: doc.title,
-//           sections: doc.sections.map((section) => ({
-//             title: section.title,
-//             content: section.content.reduce((acc, content) => {
-//               acc[content.title] = content.value || content.upload;
-//               return acc;
-//             }, {}),
-//           })),
-//         });
-//         await newDocument.save();
-//       }
-//     };
-
-//     await saveRawDocuments(mappedReqDocs);
-//     if (mappedAddDocs.length > 0) {
-//       await saveRawDocuments(mappedAddDocs);
-//     }
-
-//     // Generate PDFs with the gathered URLs
-//     const generatePDFs = async (docs) => {
-//       for (const doc of docs) {
-//         const pdfName = `document_${Date.now()}`;
-//         const pdfPath = await generatePDF(doc, fileUrls, pdfName);
-
-//         // Update the filePath field with the Cloudinary link
-//         const pdfBuffer = fs.readFileSync(pdfPath);
-//         const pdfUrl = await uploadPDFToCloudinary(pdfBuffer, pdfName);
-//         console.log(pdfUrl);
-
-//         doc.filePath = [pdfUrl];
-
-//         // Save the document to the database
-//         await saveDocumentToDatabase(doc);
-//       }
-//     };
-
-//     // Save the document to the database
-//     const saveDocumentToDatabase = async (doc) => {
-//       try {
-//         const document = new Document(doc);
-//         await document.save();
-//         console.log("Document saved successfully:", document);
-//       } catch (error) {
-//         console.error("Error saving document to the database:", error);
-//         throw error;
-//       }
-//     };
-//     // Generate PDFs for reqDocs
-//     await generatePDFs(mappedReqDocs);
-
-//     // Generate PDFs for addDocs if provided
-//     if (mappedAddDocs.length > 0) {
-//       await generatePDFs(mappedAddDocs);
-//     }
-
-//     return res.status(200).json({
-//       message: "PDF created and uploaded successfully",
-//     });
-//   } catch (error) {
-//     console.error("Error handling form data:", error);
-//     return res.status(500).json({ message: "Internal server error" });
-//   }
-// }
-
-export async function handleData(reqDoc, addDoc,files) {
+export async function handleData(reqDoc, addDoc, files) {
   try {
     // const { reqDoc, addDoc } = req.body;
-    console.log('reqDoc:', reqDoc);
-    console.log('addDoc:', addDoc);
+    console.log("reqDoc:", reqDoc);
+    console.log("addDoc:", addDoc);
     // const files = req.files || [];
-    console.log('Files:', files);
+    console.log("Files:", files);
 
     if (!reqDoc && reqDoc.length === 0) {
-      return res.status(400).json({ message: 'No data provided' });
+      return res.status(400).json({ message: "No data provided" });
     }
 
-    let reqDocs = [], addDocs = [];
+    let reqDocs = [],
+      addDocs = [];
     try {
       reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
       addDocs = addDoc ? JSON.parse(addDoc) : [];
     } catch (error) {
       console.error("Invalid JSON format in reqDoc or addDoc:", error);
-      return res.status(400).json({ message: 'Invalid JSON format' });
+      return res.status(400).json({ message: "Invalid JSON format" });
     }
 
     const fileUrls = {};
@@ -446,28 +267,29 @@ export async function handleData(reqDoc, addDoc,files) {
       for (const doc of docs) {
         for (const section of doc.sections) {
           for (const content of section.content) {
-            if (content.type === 'upload' && content.upload) {
+            if (content.type === "upload" && content.upload) {
               for (const upload of content.upload) {
-                const file = files.find(file => upload.includes(file.originalname));
-             
+                const file = files.find((file) =>
+                  upload.includes(file.originalname)
+                );
+
                 if (file) {
                   try {
                     const url = await uploadFilesToCloudinary([file]);
-                   
+
                     if (url.length > 0) {
                       fileUrls[upload] = url[0];
-                      console.log(fileUrls)
+                      console.log(fileUrls);
                       console.log(`Mapped URL: ${upload} -> ${url[0]}`);
                     }
                   } catch (error) {
-                    console.error('Error uploading file to Cloudinary:', error);
+                    console.error("Error uploading file to Cloudinary:", error);
                     throw error;
                   }
                 } else {
                   console.log(`File not found for upload: ${upload}`);
                 }
               }
-              
             }
           }
         }
@@ -494,7 +316,7 @@ export async function handleData(reqDoc, addDoc,files) {
           templateId: doc.templateId,
           title: doc.title,
           sections: doc.sections,
-          filePath: [pdfUrl]
+          filePath: [pdfUrl],
         });
 
         const savedDocument = await newDocument.save();
@@ -512,13 +334,13 @@ export async function handleData(reqDoc, addDoc,files) {
     }
 
     return {
-      message: 'PDFs created, uploaded, and saved to the database successfully',
+      message: "PDFs created, uploaded, and saved to the database successfully",
       reqDocIds: savedReqDocIds,
       addDocIds: savedAddDocIds,
     };
   } catch (error) {
-    console.error('Error handling form data:', error);
-    return { message: 'Internal server error' };
+    console.error("Error handling form data:", error);
+    return { message: "Internal server error" };
   }
 }
 
