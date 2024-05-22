@@ -129,7 +129,10 @@ const workflowTemplateSchema = new mongoose.Schema({
     additionalDocumentTemplate: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'DocumentTemplate' // Reference to the DocumentTemplate model
-    }
+    },
+},
+{
+    timestamps: true,
 });
 
 // // Middleware to track changes and create historical records

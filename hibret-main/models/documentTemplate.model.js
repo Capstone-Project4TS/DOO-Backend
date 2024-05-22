@@ -85,6 +85,9 @@ const documentTemplateSchema = new Schema({
     fieldName: String,  // Use a more descriptive name
     dataType: String  // Renamed for clarity
   }],
+},
+{
+  timestamps: true,
 });
 
 

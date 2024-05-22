@@ -50,6 +50,9 @@ import { Schema, model } from 'mongoose';
         type: Schema.Types.ObjectId,
         ref: 'Document'
     }]
+},
+{
+    timestamps: true,
 });
 
 const Workflow = model('Workflow', WorkflowSchema);
