@@ -812,34 +812,51 @@ export const getWorkflowDetails = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 export const getAllWorkflowsOfOwner = async (req, res) => {
-  const { userId } = req.params;
+    const { userId } = req.params;
 
-  try {
-    const workflows = await Workflow.find({ user: userId })
-      .populate("workflowTemplate.name")
-      .populate("status")
-      .populate("currentStageIndex")
-      .populate("assignedUsers.user")
-      .populate("assignedUsers.committee")
-      .populate("comments.fromUser")
-      .populate("comments.toUser")
-      .populate("comments.visibleTo")
-      .populate("requiredDocuments")
-      .populate("additionalDocuments");
+    try {
+        const workflows = await Workflow.find({ user: userId })
+            .populate({
+                path: 'workflowTemplate',
+                select: 'name categoryId subCategoryId',
+                populate: [
+                    { path: 'categoryId', select: 'name' },
+                    { path: 'subCategoryId', select: 'name' }
+                ]
+            })
+            .select('name status createdAt workflowTemplate');
 
-    if (!workflows || workflows.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No workflows found for this user" });
+        console.log(JSON.stringify(workflows, null, 2));  // Debugging line
+
+        if (!workflows || workflows.length === 0) {
+            return res.status(404).json({ message: 'No workflows found for this user' });
+        }
+
+        const response = workflows.map(workflow => {
+            const workflowTemplate = workflow.workflowTemplate || {};
+            const categoryName = workflowTemplate.categoryId ? workflowTemplate.categoryId.name : 'N/A';
+            const subCategoryName = workflowTemplate.subCategoryId ? workflowTemplate.subCategoryId.name : 'N/A';
+
+            return {
+                workflowName: workflow.name || 'Unnamed Workflow',
+                status: workflow.status,
+                createdAt: workflow.createdAt,
+                categoryName,
+                subCategoryName
+            };
+        });
+
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('Error fetching workflows:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
-
-    res.status(200).json(workflows);
-  } catch (error) {
-    console.error("Error fetching workflows:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
 };
+
+
+
 
 export default {
   createWorkflow,

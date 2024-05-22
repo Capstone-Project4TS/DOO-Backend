@@ -107,6 +107,9 @@ const documentTemplateSchema = new Schema({
       dataType: String, // Renamed for clarity
     },
   ],
+},
+{
+  timestamps: true,
 });
 
 const DocumentTemplate = model("DocumentTemplate", documentTemplateSchema);
