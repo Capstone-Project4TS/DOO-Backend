@@ -2,6 +2,10 @@ import { Schema, model } from 'mongoose';
 
   
   const WorkflowSchema = new Schema({
+    name: {
+        type: String,
+        // required: true
+    },
   
     workflowTemplate: {
         type: Schema.Types.ObjectId,
