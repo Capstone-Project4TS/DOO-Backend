@@ -841,6 +841,7 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
             const subCategoryName = workflowTemplate.subCategoryId ? workflowTemplate.subCategoryId.name : 'N/A';
 
             return {
+                _id: workflow._id,
                 workflowName: workflow.name || 'Unnamed Workflow',
                 status: workflow.status,
                 createdAt: workflow.createdAt,
@@ -849,10 +850,10 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
             };
         });
 
-        res.status(200).json(response);
+       return res.status(200).json(response);
     } catch (error) {
         console.error('Error fetching workflows:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        return res.status(500).json({ message: 'Internal server error' });
     }
 };
 

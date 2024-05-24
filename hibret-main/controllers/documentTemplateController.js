@@ -90,6 +90,7 @@ export async function getAllDocumentTemplates(req, res) {
     });
 
     const simplifiedTemplates = templates.map((template) => ({
+      _id: template._id,
       documentTitle: template.title,
       subCategoryName: template.subCategoryId
         ? template.subCategoryId.name
@@ -99,10 +100,10 @@ export async function getAllDocumentTemplates(req, res) {
           ? template.subCategoryId.categoryId.name
           : null,
     }));
-
-    res.status(200).json(simplifiedTemplates);
+ 
+    return res.status(200).json(simplifiedTemplates);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 }
 
