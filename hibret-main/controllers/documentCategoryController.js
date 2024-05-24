@@ -171,12 +171,12 @@ export const updateDocumentCategory = async (req, res) => {
     }
 
     // Remove old subcategories
-    for (const subcategoryName of removedSubCategories) {
-      await SubCategory.findOneAndDelete({
-        name: subcategoryName,
-        categoryId: updatedDocumentCategory._id,
-      });
-    }
+    // for (const subcategoryName of removedSubCategories) {
+    //   await SubCategory.findOneAndDelete({
+    //     name: subcategoryName,
+    //     categoryId: updatedDocumentCategory._id,
+    //   });
+    // }
 
     // Update the document category with the subcategory IDs
     updatedDocumentCategory.subcategories = [
