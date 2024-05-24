@@ -125,6 +125,7 @@ export async function getAllWorkflowTemplates(req, res) {
       .populate({ path: "subCategoryId", select: "name" });
 
     const simplifiedTemplates = templates.map((template) => ({
+      _id: template._id,
       workflowName: template.name,
       categoryName: template.categoryId ? template.categoryId.name : null,
       subCategoryName: template.subCategoryId
@@ -132,9 +133,9 @@ export async function getAllWorkflowTemplates(req, res) {
         : null,
     }));
 
-    res.status(200).json(simplifiedTemplates);
+    return res.status(200).json(simplifiedTemplates);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 }
 
