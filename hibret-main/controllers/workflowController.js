@@ -841,6 +841,7 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
             const subCategoryName = workflowTemplate.subCategoryId ? workflowTemplate.subCategoryId.name : 'N/A';
 
             return {
+                _id: workflow._id,
                 workflowName: workflow.name || 'Unnamed Workflow',
                 status: workflow.status,
                 createdAt: workflow.createdAt,
