@@ -61,14 +61,31 @@ export async function activateWorkflowForUser(userId, workflowId) {
 export async function getUserWorkflows(req, res) {
   try {
     const { userId } = req.params;
-    const userWorkflows = await UserWorkflow.find({ userId }).populate(
-      "workflows.workflowId"
+    const userWorkflows = await UserWorkflow.find({ userId }).populate({
+      path: "workflows.workflowId",
+      select: "name currentStageIndex status createdAt",
+    });
+
+    // Extract and format the workflows' details
+    const workflows = userWorkflows.flatMap(userWorkflow => 
+      userWorkflow.workflows
+        .filter(workflow => workflow.workflowId) // Ensure workflowId is not undefined
+        .map(workflow => ({
+          workflowId: workflow.workflowId._id,
+          name: workflow.workflowId.name || 'Unnamed Workflow',
+          currentStageIndex: workflow.workflowId.currentStageIndex,
+          status: workflow.workflowId.status,
+          createdAt: workflow.workflowId.createdAt,
+        }))
     );
-    res.json(userWorkflows);
+
+    res.json(workflows);
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
 }
+
+
 
 export async function updateUserWorkflowStatus(res, req) {
   try {
