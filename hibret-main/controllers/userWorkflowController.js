@@ -66,8 +66,13 @@ export async function getUserWorkflows(req, res) {
       select: "name currentStageIndex status createdAt",
     });
 
+    // Check if the user has any workflows
+    if (!userWorkflows || userWorkflows.length === 0) {
+      return res.status(404).json({ message: "This user doesn't have any workflows" });
+    }
+
     // Extract and format the workflows' details
-    const workflows = userWorkflows.flatMap(userWorkflow => 
+    const workflows = userWorkflows.flatMap(userWorkflow =>
       userWorkflow.workflows
         .filter(workflow => workflow.workflowId) // Ensure workflowId is not undefined
         .map(workflow => ({
@@ -79,9 +84,15 @@ export async function getUserWorkflows(req, res) {
         }))
     );
 
-    res.json(workflows);
+    // Check if all workflow IDs are undefined
+    if (!workflows || workflows.length === 0) {
+      return res.status(404).json({ message: "All workflows are removed or deleted" });
+    }
+
+    return res.json(workflows);
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error('Error fetching user workflows:', error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 }
 
