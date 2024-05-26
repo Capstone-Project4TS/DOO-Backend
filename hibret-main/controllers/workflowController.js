@@ -357,14 +357,19 @@ export const getAllWorkflows = async (req, res) => {
 };
 
 // Controller function to fetch all workflow instances
+//error handeled 
 export const getWorkflowsById = async (req, res) => {
   const { id } = req.params;
   try {
     // Fetch  workflow instances from the database
     const workflow = await Workflow.findById(id);
-
-    console.log(workflow);
+    if(!workflow){
+      return res.status(404).json({ message: "No worklfow found." });
+    }else{
+      console.log(workflow);
     return res.status(200).json(workflow);
+    }
+    
   } catch (error) {
     console.error("Error fetching workflows:", error);
     res.status(500).json({ error: "Internal server error" });
