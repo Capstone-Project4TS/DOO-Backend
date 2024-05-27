@@ -785,62 +785,114 @@ export const getWorkflowDetails = async (req, res) => {
   const { workflowId, userId } = req.params;
 
   try {
-    // Fetch workflow details
-    const workflow = await Workflow.findById(workflowId)
-      .populate("workflowTemplate")
-      .populate("user")
-      .populate("documents.templateId")
-      .populate("assignedUsers")
-      // .populate('assignedUsers.committee')
-      .populate("comments.fromUser")
-      .populate("comments.toUser")
-      .populate("comments.visibleTo");
+      // Fetch workflow details
+      const workflow = await Workflow.findById(workflowId)
+          .populate('workflowTemplate')
+          .populate('user')
+          .populate({
+              path: 'requiredDocuments',
+              select: 'title filePath',
+              model: Document
+          })
+          .populate({
+              path: 'additionalDocuments',
+              select: 'title filePath',
+              model: Document
+          })
+          .populate({
+              path: 'assignedUsers.user',
+              select: 'name'
+          })
+          .populate({
+              path: 'assignedUsers.committee',
+              select: 'name'
+          })
+          .populate({
+              path: 'comments.fromUser',
+              select: 'name'
+          })
+          .populate({
+              path: 'comments.toUser',
+              select: 'name'
+          })
+          .populate({
+              path: 'comments.visibleTo',
+              select: 'name'
+          });
 
-    if (!workflow) {
-      return res.status(404).json({ message: "Workflow not found" });
-    }
+      if (!workflow) {
+          return res.status(404).json({ message: 'Workflow not found' });
+      }
 
-    // Check if user is assigned to the workflow and active in the current stage
-    const assignedUser = workflow.assignedUsers.find(
-      (user) => user.user.toString() === userId
-    );
-    const isActiveUser =
-      assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+      // Check if user is assigned to the workflow and active in the current stage
+      const assignedUser = workflow.assignedUsers.find(user => user.user && user.user._id.toString() === userId);
+      const isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
 
-    // Check user permissions and determine button visibility
-    const isOwner = workflow.user._id.toString() === userId;
-    const currentStageIndex = workflow.currentStageIndex;
-    const canMoveForward =
-      isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
-    const canMoveBackward = isActiveUser && currentStageIndex > 0;
-    const canApprove =
-      isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1;
+      // Check user permissions and determine button visibility
+      const isOwner = workflow.user._id.toString() === userId;
+      const currentStageIndex = workflow.currentStageIndex;
+      const canMoveForward = isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
+      const canMoveBackward = isActiveUser && currentStageIndex > 0;
+      const canApprove = isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1;
 
-    // Determine comment visibility based on user role
-    const comments = isOwner
-      ? workflow.comments
-      : workflow.comments.filter((comment) =>
-          comment.visibleTo.some((user) => user._id.toString() === userId)
-        );
+      // Determine comment visibility based on user role
+      const comments = isOwner ? workflow.comments : workflow.comments.filter(comment => comment.visibleTo.some(user => user._id.toString() === userId));
 
-    // Prepare response data
-    const responseData = {
-      workflow,
-      buttons: {
-        canMoveForward,
-        canMoveBackward,
-        isOwner,
-        canApprove,
-        // Add more button visibility flags as needed...
-      },
-      comments,
-    };
+      // Get the current stage user or committee name
+      let currentStageUserOrCommitteeName = '';
+      const currentStage = workflow.assignedUsers.find(stage => stage.stageIndex === currentStageIndex);
+      if (currentStage) {
+          const id = currentStage.user || currentStage.committee;
+          if (id) {
+              // Check if the ID belongs to a User
+              const user = await User.findById(id).select('name');
+              if (user) {
+                  currentStageUserOrCommitteeName = user.name;
+              } else {
+                  // If not a user, check if it belongs to a Committee
+                  const committee = await Committee.findById(id).select('name');
+                  if (committee) {
+                      currentStageUserOrCommitteeName = committee.name;
+                  }
+              }
+          }
+      }
 
-    // Return the workflow details to the client
-    return res.status(200).json(responseData);
+      // Log the current stage information for debugging
+      console.log('Current Stage:', currentStage);
+      console.log('Current Stage User/Committee ID:', currentStage ? (currentStage.user || currentStage.committee) : null);
+      console.log('Current Stage User/Committee Name:', currentStageUserOrCommitteeName);
+
+      // Prepare response data
+      const responseData = {
+          workflow: {
+              _id: workflow._id, 
+              status: workflow.status,
+              currentStageIndex: workflow.currentStageIndex,
+              requiredDocuments: workflow.requiredDocuments.map(doc => ({
+                  name: doc.title,
+                  filePath: doc.filePath
+              })),
+              additionalDocuments: workflow.additionalDocuments.map(doc => ({
+                  name: doc.title,
+                  filePath: doc.filePath
+              })),
+              comments
+          },
+          currentStageUserOrCommitteeName,
+          buttons: {
+              canMoveForward,
+              canMoveBackward,
+              isOwner,
+              canApprove
+          }
+      };
+
+      // Return the workflow details to the client
+      return res.status(200).json(responseData);
   } catch (error) {
-    console.error("Error fetching workflow details:", error);
-    return res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching workflow details:', error);
+      return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -876,20 +928,21 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
         ? workflowTemplate.subCategoryId.name
         : "N/A";
 
-      return {
-        workflowName: workflow.name || "Unnamed Workflow",
-        status: workflow.status,
-        createdAt: workflow.createdAt,
-        categoryName,
-        subCategoryName,
-      };
-    });
+            return {
+                _id: workflow._id,
+                workflowName: workflow.name || 'Unnamed Workflow',
+                status: workflow.status,
+                createdAt: workflow.createdAt,
+                categoryName,
+                subCategoryName
+            };
+        });
 
-    res.status(200).json(response);
-  } catch (error) {
-    console.error("Error fetching workflows:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
+       return res.status(200).json(response);
+    } catch (error) {
+        console.error('Error fetching workflows:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
 };
 
 export default {
