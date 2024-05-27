@@ -1,6 +1,6 @@
-// routes/folders.js
-
 import { Router } from "express";
+import Auth from "../middleware/auth.js";
+
 const router = Router();
 import {
   createFolder,
@@ -13,6 +13,7 @@ import {
   deleteFolderById,
   getDocumentsInFolder,
   getImmediate,
+  fetchRepositories
 } from "../controllers/folderController.js";
 
 // Route for creating a new folder
@@ -20,6 +21,8 @@ router.post("/", createFolder);
 
 // Route for retrieving all folders
 router.get("/", getAllFolders);
+
+router.get("/fetchrepos", Auth, fetchRepositories);
 
 // Route for retrieving a specific folder by ID
 router.get("/:id", getFolderById);

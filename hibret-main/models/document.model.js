@@ -27,54 +27,12 @@ const documentSchema = new mongoose.Schema(
       },
     ],
 
-    filePath: [
+    filePath: 
       {
         type: String,
-        required: false, // This field is required for documents created through uploading
-      },
-    ],
-    repositoryId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Repository",
-      required: false,
-    },
-
-    versions: [
-      {
-        versionNumber: String,
-        filePath: String,
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
-        updatedAt: Date,
-        updatedBy: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-        },
-      },
-    ],
-
-    folderId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Folder",
-    },
-
-    ownerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-
-    acl: [
-      {
-        userId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-        },
-        role: String,
-        permissions: [String],
-      },
-    ],
+        required: false, 
+      }
+    
   },
   {
     timestamps: true,

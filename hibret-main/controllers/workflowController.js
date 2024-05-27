@@ -2,23 +2,20 @@ import Workflow from "../models/workflow.model.js";
 import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import User from "../models/users.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
+import UserModel from '../models/users.model.js'
 import { handleData } from "../controllers/documentController.js";
-import Committee from "../models/committee.model.js";
 import Folder from "../models/folder.model.js";
-import createFolderHierarchy from "./documentCategoryController.js";
-import Document from "../models/document.model.js";
 
-// Helper function to get the current quarter
 function getCurrentQuarter() {
   const month = new Date().getMonth() + 1; // getMonth() returns 0-11
   return Math.floor((month - 1) / 3) + 1;
 }
 
 export async function createWorkflow(req, res) {
-  const { workflowTemplateId, userId, reqDoc, addDoc } = req.body;
+  const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
   const files = req.files;
-  let reqDocs = [],
-    addDocs = [];
+  let reqDocs = [];
+  let addDocs = [];
   try {
     reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
     addDocs = addDoc ? JSON.parse(addDoc) : [];
@@ -34,6 +31,12 @@ export async function createWorkflow(req, res) {
     if (!workflowTemplate) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
+
+    // Retrieve user and role information
+    const user = await UserModel.findById(userId).populate({
+      path: "role_id",
+    });
+    const userDepartment = user.role_id.depId; // Assuming user's department is available in the request
 
     // Extract stage information
     const stages = workflowTemplate.stages;
@@ -54,6 +57,7 @@ export async function createWorkflow(req, res) {
 
     // Create workflow instance
     const newWorkflow = new Workflow({
+      name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
       assignedUsers,
@@ -95,9 +99,7 @@ export async function createWorkflow(req, res) {
     }
 
     // Define the criteria for the hierarchy
-    const repositoryId = workflowTemplate.repositoryId;
-    const categoryId = workflowTemplate.categoryId;
-    const subCategoryId = workflowTemplate.subCategoryId;
+    const repositoryId = workflowTemplate.depId;
     const year = new Date().getFullYear();
     const quarter = getCurrentQuarter();
     const month = new Date().getMonth() + 1;
@@ -105,50 +107,77 @@ export async function createWorkflow(req, res) {
       month: "long",
     });
 
-    // Find or create the appropriate folder in the hierarchy
-    let folder = await Folder.findOne({
-      parentFolder: subCategoryId,
+    // Find the root folder based on the user's department
+    const rootFolder = await Folder.findOne({
+      name: userDepartment,
+      parentFolder: repositoryId,
+    });
+    if (!rootFolder) {
+      return res
+        .status(404)
+        .json({ message: "Department Repository not found" });
+    }
+
+    // Traverse the folder hierarchy
+    let categoryFolder = await Folder.findOne({
+      parentFolder: rootFolder._id,
+      name: workflowTemplate.categoryId,
+    });
+
+    let subCategoryFolder = await Folder.findOne({
+      parentFolder: categoryFolder._id,
+      name: workflowTemplate.subCategoryId,
+    });
+
+    let yearFolder = await Folder.findOne({
+      parentFolder: subCategoryFolder._id,
       name: `workflows of ${year}`,
     });
-    if (!folder) {
-      await createFolderHierarchy(subCategoryId, year);
-      folder = await Folder.findOne({
-        parentFolder: subCategoryId,
+    if (!yearFolder) {
+      await createFolderHierarchy(subCategoryFolder._id, year);
+      yearFolder = await Folder.findOne({
+        parentFolder: subCategoryFolder._id,
         name: `workflows of ${year}`,
       });
     }
 
     let quarterFolder = await Folder.findOne({
-      parentFolder: folder._id,
+      parentFolder: yearFolder._id,
       name: `Quarter${quarter}`,
     });
-    if (!quarterFolder) {
-      const quarterFolder = new Folder({
-        name: `Quarter${quarter}`,
-        parentFolder: folder._id,
-      });
-      quarterFolder = await quarterFolder.save();
-    }
 
     let monthFolder = await Folder.findOne({
       parentFolder: quarterFolder._id,
       name: `${monthName}`,
     });
-    if (!monthFolder) {
-      const monthFolder = new Folder({
-        name: `${monthName}`,
-        parentFolder: quarterFolder._id,
+
+    let workflowFolder = await Folder.findOne({
+      parentFolder: monthFolder._id,
+      name: workflowName,
+    });
+    if (!workflowFolder) {
+      workflowFolder = new Folder({
+        name: workflowName,
+        parentFolder: monthFolder._id,
       });
-      monthFolder = await monthFolder.save();
+      workflowFolder = await workflowFolder.save();
     }
 
-    // Add the workflow ID to the appropriate month folder
-    monthFolder.workflows.push(savedWorkflow._id);
-    await monthFolder.save();
+    // Add the workflow ID and documents to the workflow folder
+    workflowFolder.workflows.push({
+      workflowId: savedWorkflow._id,
+      documents: [
+        ...newWorkflow.requiredDocuments,
+        ...newWorkflow.additionalDocuments,
+      ],
+    });
+    await workflowFolder.save();
+    newWorkflow.parentFolder=workflowFolder._id;
+    await  newWorkflow.save();
 
     return res
       .status(201)
-      .json({ workflow: savedWorkflow, userWorkflows, monthFolder });
+      .json({ workflow: savedWorkflow, userWorkflows, workflowFolder });
   } catch (error) {
     console.error("Error creating workflow:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -883,25 +912,31 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
   try {
     const workflows = await Workflow.find({ user: userId })
       .populate({
-        path: 'workflowTemplate',
-        select: 'name categoryId subCategoryId',
+        path: "workflowTemplate",
+        select: "name categoryId subCategoryId",
         populate: [
-          { path: 'categoryId', select: 'name' },
-          { path: 'subCategoryId', select: 'name' }
-        ]
+          { path: "categoryId", select: "name" },
+          { path: "subCategoryId", select: "name" },
+        ],
       })
-      .select('name status createdAt workflowTemplate');
+      .select("name status createdAt workflowTemplate");
 
-    console.log(JSON.stringify(workflows, null, 2));  // Debugging line
+    console.log(JSON.stringify(workflows, null, 2)); // Debugging line
 
     if (!workflows || workflows.length === 0) {
-      return res.status(404).json({ message: 'No workflows found for this user' });
+      return res
+        .status(404)
+        .json({ message: "No workflows found for this user" });
     }
 
-    const response = workflows.map(workflow => {
+    const response = workflows.map((workflow) => {
       const workflowTemplate = workflow.workflowTemplate || {};
-      const categoryName = workflowTemplate.categoryId ? workflowTemplate.categoryId.name : 'N/A';
-      const subCategoryName = workflowTemplate.subCategoryId ? workflowTemplate.subCategoryId.name : 'N/A';
+      const categoryName = workflowTemplate.categoryId
+        ? workflowTemplate.categoryId.name
+        : "N/A";
+      const subCategoryName = workflowTemplate.subCategoryId
+        ? workflowTemplate.subCategoryId.name
+        : "N/A";
 
       return {
         _id: workflow._id,
@@ -919,9 +954,6 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
-
-
-
 
 export default {
   createWorkflow,

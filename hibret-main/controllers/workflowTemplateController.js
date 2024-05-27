@@ -12,7 +12,7 @@ export const createWorkflowTemplate = async (req, res) => {
       stages,
       requiredDocumentTemplates,
       additionalDoc,
-      repositoryId,
+      depId,
     } = req.body;
 
     // Input validation (required fields)
@@ -22,7 +22,7 @@ export const createWorkflowTemplate = async (req, res) => {
       !subCategoryId ||
       !stages.length ||
       !requiredDocumentTemplates.length ||
-      !repositoryId
+      !depId
     ) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -31,7 +31,7 @@ export const createWorkflowTemplate = async (req, res) => {
     if (
       !mongoose.Types.ObjectId.isValid(categoryId) ||
       !mongoose.Types.ObjectId.isValid(subCategoryId) ||
-      !mongoose.Types.ObjectId.isValid(repositoryId)
+      !mongoose.Types.ObjectId.isValid(depId)
     ) {
       return res
         .status(400)
@@ -105,7 +105,7 @@ export const createWorkflowTemplate = async (req, res) => {
       stages,
       requiredDocumentTemplates,
       additionalDoc,
-      repositoryId,
+      depId,
     });
 
     const savedTemplate = await newTemplate.save();

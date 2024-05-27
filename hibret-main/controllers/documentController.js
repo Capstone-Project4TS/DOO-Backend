@@ -165,7 +165,7 @@ const getDocumentById = async (req, res) => {
 const getDocumentsByFilter = async (req, res) => {
   try {
     // Extract filter parameters from the query string
-    const { title, owner, creationDate } = req.query;
+    const { title, createdAt } = req.query;
 
     // Build the filter object based on the provided parameters
     const filter = {};
@@ -174,12 +174,8 @@ const getDocumentsByFilter = async (req, res) => {
       filter.title = title;
     }
 
-    if (owner) {
-      filter.ownerId = owner;
-    }
-
-    if (creationDate) {
-      filter.creationDate = creationDate; // You might need to parse the date format
+    if (createdAt) {
+      filter.createdAt = new Date(createdAt); // Ensure the date is properly formatted
     }
 
     // Query the database with the filter object
@@ -214,31 +210,6 @@ const deleteDocumentById = async (req, res) => {
   }
 };
 
-export async function getUploadedDoc(req, res) {
-  try {
-    const { id } = req.params;
-
-    // Find the file by ID in the database
-    const document = await Document.findById(id);
-
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
-    }
-
-    // For simplicity, assuming the file is stored in the file system
-    fs.readFile(document.filePath, (err, data) => {
-      if (err) {
-        console.error("Error reading file:", err);
-        return res.status(500).json({ error: "Failed to read file" });
-      }
-      // Send the file data to the frontend
-      res.status(200).json({ fileData: data });
-    });
-  } catch (error) {
-    console.error("Error retrieving file:", error);
-    return res.status(500).json({ error: "Failed to retrieve file" });
-  }
-}
 
 export async function handleData(reqDoc, addDoc, files) {
   try {
@@ -345,7 +316,6 @@ export async function handleData(reqDoc, addDoc, files) {
 }
 
 export default {
-  getUploadedDoc,
   getAllDocuments,
   getDocumentById,
   getDocumentsByFilter,

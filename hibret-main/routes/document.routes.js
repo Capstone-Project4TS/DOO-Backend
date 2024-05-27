@@ -11,14 +11,12 @@ const {
   getDocumentById,
   getDocumentsByFilter,
   deleteDocumentById,
-  getUploadedDoc,
 } = documentController;
 
 //GET
 router.get("/", getAllDocuments);
 router.get("/filter", getDocumentsByFilter);
 router.get("/:id", getDocumentById);
-router.get("/getUpload/:id", getUploadedDoc);
 
 //POST
 router.post("/create", upload.array("files"), handleData);
