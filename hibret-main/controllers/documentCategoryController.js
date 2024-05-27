@@ -17,19 +17,26 @@ export const createDocumentCategory = async (req, res) => {
 
     const departmentName = department.name;
 
-    // Create the top-level folder for the department
-    const departmentFolder = new Folder({
-      name: departmentName,
-      parentFolder: null, // Top-level folder has no parent
-    });
-    const savedDepartmentFolder = await departmentFolder.save();
+    // Create the top-level folder for the department if it doesn't exist
+    let departmentFolder = await Folder.findOne({ name: departmentName, parentFolder: null });
+    if (!departmentFolder) {
+      departmentFolder = new Folder({
+        name: departmentName,
+        parentFolder: depId // Top-level folder has no parent
+      });
+      departmentFolder = await departmentFolder.save();
+    }
 
     // Create main folder for the document category under the department folder
     const mainCategoryFolder = new Folder({
       name: name,
-      parentFolder: savedDepartmentFolder._id,
+      parentFolder: departmentFolder._id,
     });
     const savedMainCategoryFolder = await mainCategoryFolder.save();
+
+    // Update department folder's children
+    departmentFolder.folders.push(savedMainCategoryFolder._id);
+    await departmentFolder.save();
 
     // Create new document category
     const newDocumentCategory = new DocumentCategory({
@@ -49,6 +56,10 @@ export const createDocumentCategory = async (req, res) => {
         parentFolder: savedMainCategoryFolder._id,
       });
       const savedSubCategoryFolder = await subCategoryFolder.save();
+
+      // Update main category folder's children
+      savedMainCategoryFolder.folders.push(savedSubCategoryFolder._id);
+      await savedMainCategoryFolder.save();
 
       // Create folder hierarchy for the current year under the subcategory folder
       const yearFolderId = await createFolderHierarchy(
@@ -83,6 +94,8 @@ export const createDocumentCategory = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
 
 
 // Controller function to retrieve all document categories with subcategories
@@ -232,6 +245,10 @@ export const deleteDocumentCategory = async (req, res) => {
   }
 };
 
+
+
+
+
 export default {
   createDocumentCategory,
   getAllDocumentCategory,
@@ -240,4 +257,5 @@ export default {
   deleteDocumentCategory,
   getCategoriesByRepositoryId,
   createFolderHierarchy,
+
 };

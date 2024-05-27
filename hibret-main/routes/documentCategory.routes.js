@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 const router = Router();
 import {
   createDocumentCategory,
@@ -7,6 +8,7 @@ import {
   updateDocumentCategory,
   deleteDocumentCategory,
   getCategoriesByRepositoryId,
+  
 } from "../controllers/documentCategoryController.js";
 
 // // Route for creating a new document type
@@ -14,6 +16,8 @@ router.post("/category", createDocumentCategory);
 
 // // Route for retrieving all document types
 router.get("/category", getAllDocumentCategory);
+
+
 
 // // Route for retrieving a specific document type by ID
 router.get("/category/:id", getDocumentCategoryById);

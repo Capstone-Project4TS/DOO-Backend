@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import morgan from "morgan";
 import connect from "./config/conn.js";
 import router from "./routes/route.js";
@@ -10,7 +9,6 @@ import subCategoryRoutes from "./routes/subCategory.routes.js";
 import workflowTemplateRoutes from "./routes/workflowTemplate.route.js";
 import folderRoutes from "./routes/folder.routes.js";
 import roleRoutes from "./routes/role.routes.js";
-import repoRoutes from "./routes/repository.routes.js";
 import userWorkflow from "./routes/userWorkflow.routes.js";
 import workflowRoutes from "./routes/workflow.routes.js";
 import dotenv from "dotenv";
@@ -29,11 +27,11 @@ const app = express();
 dotenv.config();
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors());
 app.use(morgan("tiny"));
 app.disable("x-powered-by");
 initPassportJS();
 initCORS(app);
+
 
 // Middleware to initialize session
 app.use(
@@ -89,6 +87,5 @@ app.use(
   roleRoutes
 );
 app.use("/folder", folderRoutes);
-app.use("/repo", repoRoutes);
 app.use("/initiate", userWorkflow, workflowRoutes);
  
