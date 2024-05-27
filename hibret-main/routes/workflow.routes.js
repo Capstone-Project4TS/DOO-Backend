@@ -1,4 +1,3 @@
-import multer from "multer";
 import upload from "../config/multerConfig.js";
 import { Router } from "express";
 const router = Router();

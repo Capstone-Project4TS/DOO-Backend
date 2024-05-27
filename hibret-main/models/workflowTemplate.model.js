@@ -38,9 +38,9 @@ const workflowTemplateSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "SubCategory", // Reference to the SubCategory model
   },
-  repositoryId: {
+  depId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Repository",
+    ref: "Department",
   },
   stages: [
     {
