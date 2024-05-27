@@ -1,5 +1,4 @@
 import cors from "cors";
-import Express from "express";
 
 export default function initCORS(app) {
   app.use(
@@ -13,4 +12,7 @@ export default function initCORS(app) {
       credentials: true, // enable set cookie
     })
   );
+
+  // Handle preflight requests
+  app.options("*", cors());
 }

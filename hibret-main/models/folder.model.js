@@ -9,19 +9,18 @@ const folderSchema = new mongoose.Schema({
   },
   parentFolder: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "SubCategory",
+    ref: "Folder"
   },
-
+  folders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Folder' }],
   workflows: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Workflow",
-    },
-  ],
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+      workflowId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workflow' , select: false },
+      documents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Document' , select: false }],
+     
+    }
+    
+  ]},{
+  timestamps: true
 });
 
 // Create the Folder model
