@@ -65,7 +65,10 @@ export async function createWorkflow(req, res) {
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc, files);
-
+    
+    if (generatedDocuments.status !== 200) {
+      return res.status(generatedDocuments.status).json(generatedDocuments.body);
+    }
     // Update documents field of the workflow
     newWorkflow.requiredDocuments = generatedDocuments.reqDocIds;
     newWorkflow.additionalDocuments = generatedDocuments.addDocIds;

@@ -211,26 +211,26 @@ const deleteDocumentById = async (req, res) => {
 };
 
 
+// Function to handle data and generate PDFs
 export async function handleData(reqDoc, addDoc, files) {
   try {
-    // const { reqDoc, addDoc } = req.body;
     console.log("reqDoc:", reqDoc);
     console.log("addDoc:", addDoc);
-    // const files = req.files || [];
     console.log("Files:", files);
 
-    if (!reqDoc && reqDoc.length === 0) {
-      return res.status(400).json({ message: "No data provided" });
+    if (!reqDoc || reqDoc.length === 0) {
+      return { status: 400, body: { message: "No data provided" } };
     }
 
     let reqDocs = [],
-      addDocs = [];
+        addDocs = [];
+
     try {
       reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
       addDocs = addDoc ? JSON.parse(addDoc) : [];
     } catch (error) {
       console.error("Invalid JSON format in reqDoc or addDoc:", error);
-      return res.status(400).json({ message: "Invalid JSON format" });
+      return { status: 400, body: { message: "Invalid JSON format" } };
     }
 
     const fileUrls = {};
@@ -247,7 +247,6 @@ export async function handleData(reqDoc, addDoc, files) {
                 if (file) {
                   try {
                     const url = await uploadFilesToCloudinary([file]);
-
                     if (url.length > 0) {
                       fileUrls[upload] = url[0];
                       console.log(fileUrls);
@@ -255,7 +254,7 @@ export async function handleData(reqDoc, addDoc, files) {
                     }
                   } catch (error) {
                     console.error("Error uploading file to Cloudinary:", error);
-                    throw error;
+                    throw new Error("File upload failed");
                   }
                 } else {
                   console.log(`File not found for upload: ${upload}`);
@@ -277,24 +276,29 @@ export async function handleData(reqDoc, addDoc, files) {
 
     const generatePDFs = async (docs) => {
       for (const doc of docs) {
-        const pdfName = `document_${Date.now()}`;
-        const pdfPath = await generatePDF(doc, fileUrls, pdfName);
-        const pdfBuffer = fs.readFileSync(pdfPath);
-        const pdfUrl = await uploadPDFToCloudinary(pdfBuffer, pdfName);
-        console.log(pdfUrl);
+        try {
+          const pdfName = `document_${Date.now()}`;
+          const pdfPath = await generatePDF(doc, fileUrls, pdfName);
+          const pdfBuffer = fs.readFileSync(pdfPath);
+          const pdfUrl = await uploadPDFToCloudinary(pdfBuffer, pdfName);
+          console.log(pdfUrl);
 
-        const newDocument = new Document({
-          templateId: doc.templateId,
-          title: doc.title,
-          sections: doc.sections,
-          filePath: [pdfUrl],
-        });
+          const newDocument = new Document({
+            templateId: doc.templateId,
+            title: doc.title,
+            sections: doc.sections,
+            filePath: [pdfUrl],
+          });
 
-        const savedDocument = await newDocument.save();
-        if (docs === reqDocs) {
-          savedReqDocIds.push(savedDocument._id);
-        } else {
-          savedAddDocIds.push(savedDocument._id);
+          const savedDocument = await newDocument.save();
+          if (docs === reqDocs) {
+            savedReqDocIds.push(savedDocument._id);
+          } else {
+            savedAddDocIds.push(savedDocument._id);
+          }
+        } catch (error) {
+          console.error("Error generating or uploading PDF:", error);
+          throw new Error("PDF generation/upload failed");
         }
       }
     };
@@ -305,15 +309,19 @@ export async function handleData(reqDoc, addDoc, files) {
     }
 
     return {
-      message: "PDFs created, uploaded, and saved to the database successfully",
-      reqDocIds: savedReqDocIds,
-      addDocIds: savedAddDocIds,
+      status: 200,
+      body: {
+        message: "PDFs created, uploaded, and saved to the database successfully",
+        reqDocIds: savedReqDocIds,
+        addDocIds: savedAddDocIds,
+      },
     };
   } catch (error) {
     console.error("Error handling form data:", error);
-    return { message: "Internal server error" };
+    return { status: 500, body: { message: "Internal server error" } };
   }
 }
+
 
 export default {
   getAllDocuments,
