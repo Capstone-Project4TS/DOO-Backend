@@ -46,7 +46,7 @@ app.use(
       ttl: 60 * 60, // Session expiration time in seconds (e.g., 1 day)
     }),
     cookie: {
-      maxAge: 3600000, // Session expiry time (in milliseconds), e.g., 1 hour
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
       httpOnly: true, // Cookie accessible only through HTTP(S) requests, not client-side scripts
       secure: false,
     },

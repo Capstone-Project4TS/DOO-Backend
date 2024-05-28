@@ -2,9 +2,17 @@ import Workflow from "../models/workflow.model.js";
 import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import User from "../models/users.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
-import UserModel from '../models/users.model.js'
 import { handleData } from "../controllers/documentController.js";
 import Folder from "../models/folder.model.js";
+import mongoose from "mongoose";
+const { ObjectId } = mongoose.Types;
+
+// Utility function to flatten nested arrays
+const flattenArray = (arr) =>
+  arr.reduce(
+    (acc, val) => acc.concat(Array.isArray(val) ? flattenArray(val) : val),
+    []
+  );
 
 function getCurrentQuarter() {
   const month = new Date().getMonth() + 1; // getMonth() returns 0-11
@@ -14,6 +22,9 @@ function getCurrentQuarter() {
 export async function createWorkflow(req, res) {
   const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
   const files = req.files;
+  if (!reqDoc || reqDoc.length === 0) {
+    return req.status(400).json({ message: "No data provided" });
+  }
   let reqDocs = [];
   let addDocs = [];
   try {
@@ -24,19 +35,17 @@ export async function createWorkflow(req, res) {
     return res.status(400).json({ message: "Invalid JSON format" });
   }
   try {
-    // Retrieve workflow template
-    const workflowTemplate = await WorkflowTemplate.findById(
-      workflowTemplateId
-    );
+    const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId)
+      .populate({
+        path: "categoryId",
+      })
+      .populate("subCategoryId")
+      .exec();
+    console.log("hello");
+    console.log(workflowTemplate);
     if (!workflowTemplate) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
-
-    // Retrieve user and role information
-    const user = await UserModel.findById(userId).populate({
-      path: "role_id",
-    });
-    const userDepartment = user.role_id.depId; // Assuming user's department is available in the request
 
     // Extract stage information
     const stages = workflowTemplate.stages;
@@ -55,23 +64,58 @@ export async function createWorkflow(req, res) {
       assignedUsers.push({ user: assignedUser, stageIndex: index });
     }
 
-    // Create workflow instance
-    const newWorkflow = new Workflow({
-      name: workflowName,
-      workflowTemplate: workflowTemplateId,
-      user: userId,
-      assignedUsers,
+    // Define the criteria for the hierarchy
+    const repositoryId = workflowTemplate.depId;
+    console.log(repositoryId);
+    const categoryName = workflowTemplate.categoryId.name;
+    const subCategoryName = workflowTemplate.subCategoryId.name;
+
+    const year = new Date().getFullYear();
+    const quarter = getCurrentQuarter();
+    const month = new Date().getMonth() + 1;
+    const monthName = new Date(year, month - 1).toLocaleString("default", {
+      month: "long",
     });
+
+    // Check if a workflow with the same name already exists for the current month
+    const existingWorkflow = await Workflow.findOne({
+      name: workflowName,
+      user: userId,
+      createdAt: {
+        $gte: new Date(year, month - 1, 1),
+        $lt: new Date(year, month, 1),
+      },
+    });
+
+    let newWorkflow;
+    if (existingWorkflow) {
+      // Update the existing workflow
+      newWorkflow = existingWorkflow;
+    } else {
+      // Create a new workflow instance
+      newWorkflow = new Workflow({
+        name: workflowName,
+        workflowTemplate: workflowTemplateId,
+        user: userId,
+        assignedUsers,
+      });
+    }
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc, files);
-    
+    console.log(generatedDocuments);
+
     if (generatedDocuments.status !== 200) {
-      return res.status(generatedDocuments.status).json(generatedDocuments.body);
+      return res
+        .status(generatedDocuments.status)
+        .json(generatedDocuments.body);
     }
-    // Update documents field of the workflow
-    newWorkflow.requiredDocuments = generatedDocuments.reqDocIds;
-    newWorkflow.additionalDocuments = generatedDocuments.addDocIds;
+
+    const requiredDocuments = generatedDocuments.body.reqDocIds;
+    const additionalDocuments = generatedDocuments.body.addDocIds;
+
+    newWorkflow.requiredDocuments = requiredDocuments;
+    newWorkflow.additionalDocuments = additionalDocuments;
 
     // Save workflow instance
     const savedWorkflow = await newWorkflow.save();
@@ -101,18 +145,8 @@ export async function createWorkflow(req, res) {
       }
     }
 
-    // Define the criteria for the hierarchy
-    const repositoryId = workflowTemplate.depId;
-    const year = new Date().getFullYear();
-    const quarter = getCurrentQuarter();
-    const month = new Date().getMonth() + 1;
-    const monthName = new Date(year, month - 1).toLocaleString("default", {
-      month: "long",
-    });
-
     // Find the root folder based on the user's department
     const rootFolder = await Folder.findOne({
-      name: userDepartment,
       parentFolder: repositoryId,
     });
     if (!rootFolder) {
@@ -124,14 +158,14 @@ export async function createWorkflow(req, res) {
     // Traverse the folder hierarchy
     let categoryFolder = await Folder.findOne({
       parentFolder: rootFolder._id,
-      name: workflowTemplate.categoryId,
+      name: categoryName,
     });
-
+    console.log("Category Folder", categoryFolder);
     let subCategoryFolder = await Folder.findOne({
       parentFolder: categoryFolder._id,
-      name: workflowTemplate.subCategoryId,
+      name: subCategoryName,
     });
-
+    console.log("Sub Category Folder", subCategoryFolder);
     let yearFolder = await Folder.findOne({
       parentFolder: subCategoryFolder._id,
       name: `workflows of ${year}`,
@@ -156,27 +190,42 @@ export async function createWorkflow(req, res) {
 
     let workflowFolder = await Folder.findOne({
       parentFolder: monthFolder._id,
-      name: workflowName,
+      name: workflowTemplate.name,
     });
     if (!workflowFolder) {
+      console.log("Workflow folder is undefined. Initializing...");
       workflowFolder = new Folder({
-        name: workflowName,
+        name: workflowTemplate.name,
         parentFolder: monthFolder._id,
       });
       workflowFolder = await workflowFolder.save();
-    }
 
-    // Add the workflow ID and documents to the workflow folder
-    workflowFolder.workflows.push({
-      workflowId: savedWorkflow._id,
-      documents: [
-        ...newWorkflow.requiredDocuments,
-        ...newWorkflow.additionalDocuments,
-      ],
-    });
-    await workflowFolder.save();
-    newWorkflow.parentFolder=workflowFolder._id;
-    await  newWorkflow.save();
+      const index = workflowFolder.workflows.findIndex((workflow) => {
+        console.log("Workflow:", workflow);
+        console.log("Saved Workflow ID:", savedWorkflow._id);
+        console.log("Saved Workflow ID type:", typeof savedWorkflow._id);
+        return workflow._id.toString() === savedWorkflow._id.toString();
+      });
+
+      if (index === -1) {
+        console.log("Workflow not found in folder. Adding...");
+        workflowFolder.workflows.push({
+          workflowId: savedWorkflow._id,
+          documents: [
+            ...savedWorkflow.requiredDocuments,
+            ...savedWorkflow.additionalDocuments,
+          ],
+        });
+        await workflowFolder.save();
+        monthFolder.folders.push(workflowFolder._id);
+        await monthFolder.save();
+      } else {
+        console.log("Workflow already exists in folder. Skipping...");
+      }
+    } else {
+      console.log(monthFolder);
+      console.log("Workflow folder already exists...");
+    }
 
     return res
       .status(201)
@@ -384,8 +433,8 @@ export const getAllWorkflows = async (req, res) => {
 
     if (!workflows) {
       return res.status(404).json({ message: "No worklfow found." });
-    } else { 
-      return res.status(200).json(workflows); 
+    } else {
+      return res.status(200).json(workflows);
     }
   } catch (error) {
     console.error("Error fetching workflows:", error);
@@ -394,7 +443,7 @@ export const getAllWorkflows = async (req, res) => {
 };
 
 // Controller function to fetch all workflow instances
-//error handeled 
+//error handeled
 export const getWorkflowsById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -406,7 +455,6 @@ export const getWorkflowsById = async (req, res) => {
       console.log(workflow);
       return res.status(200).json(workflow);
     }
-
   } catch (error) {
     console.error("Error fetching workflows:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -800,70 +848,81 @@ export const getWorkflowDetails = async (req, res) => {
   try {
     // Fetch workflow details
     const workflow = await Workflow.findById(workflowId)
-      .populate('workflowTemplate')
-      .populate('user')
+      .populate("workflowTemplate")
+      .populate("user")
       .populate({
-        path: 'requiredDocuments',
-        select: 'title filePath',
-        model: Document
+        path: "requiredDocuments",
+        select: "title filePath",
+        model: Document,
       })
       .populate({
-        path: 'additionalDocuments',
-        select: 'title filePath',
-        model: Document
+        path: "additionalDocuments",
+        select: "title filePath",
+        model: Document,
       })
       .populate({
-        path: 'assignedUsers.user',
-        select: 'name'
+        path: "assignedUsers.user",
+        select: "name",
       })
       .populate({
-        path: 'assignedUsers.committee',
-        select: 'name'
+        path: "assignedUsers.committee",
+        select: "name",
       })
       .populate({
-        path: 'comments.fromUser',
-        select: 'name'
+        path: "comments.fromUser",
+        select: "name",
       })
       .populate({
-        path: 'comments.toUser',
-        select: 'name'
+        path: "comments.toUser",
+        select: "name",
       })
       .populate({
-        path: 'comments.visibleTo',
-        select: 'name'
+        path: "comments.visibleTo",
+        select: "name",
       });
 
     if (!workflow) {
-      return res.status(404).json({ message: 'Workflow not found' });
+      return res.status(404).json({ message: "Workflow not found" });
     }
 
     // Check if user is assigned to the workflow and active in the current stage
-    const assignedUser = workflow.assignedUsers.find(user => user.user && user.user._id.toString() === userId);
-    const isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+    const assignedUser = workflow.assignedUsers.find(
+      (user) => user.user && user.user._id.toString() === userId
+    );
+    const isActiveUser =
+      assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
 
     // Check user permissions and determine button visibility
     const isOwner = workflow.user._id.toString() === userId;
     const currentStageIndex = workflow.currentStageIndex;
-    const canMoveForward = isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
+    const canMoveForward =
+      isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
     const canMoveBackward = isActiveUser && currentStageIndex > 0;
-    const canApprove = isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1;
+    const canApprove =
+      isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1;
 
     // Determine comment visibility based on user role
-    const comments = isOwner ? workflow.comments : workflow.comments.filter(comment => comment.visibleTo.some(user => user._id.toString() === userId));
+    const comments = isOwner
+      ? workflow.comments
+      : workflow.comments.filter((comment) =>
+          comment.visibleTo.some((user) => user._id.toString() === userId)
+        );
 
     // Get the current stage user or committee name
-    let currentStageUserOrCommitteeName = '';
-    const currentStage = workflow.assignedUsers.find(stage => stage.stageIndex === currentStageIndex);
+    let currentStageUserOrCommitteeName = "";
+    const currentStage = workflow.assignedUsers.find(
+      (stage) => stage.stageIndex === currentStageIndex
+    );
     if (currentStage) {
       const id = currentStage.user || currentStage.committee;
       if (id) {
         // Check if the ID belongs to a User
-        const user = await User.findById(id).select('name');
+        const user = await User.findById(id).select("name");
         if (user) {
           currentStageUserOrCommitteeName = user.name;
         } else {
           // If not a user, check if it belongs to a Committee
-          const committee = await Committee.findById(id).select('name');
+          const committee = await Committee.findById(id).select("name");
           if (committee) {
             currentStageUserOrCommitteeName = committee.name;
           }
@@ -872,9 +931,15 @@ export const getWorkflowDetails = async (req, res) => {
     }
 
     // Log the current stage information for debugging
-    console.log('Current Stage:', currentStage);
-    console.log('Current Stage User/Committee ID:', currentStage ? (currentStage.user || currentStage.committee) : null);
-    console.log('Current Stage User/Committee Name:', currentStageUserOrCommitteeName);
+    console.log("Current Stage:", currentStage);
+    console.log(
+      "Current Stage User/Committee ID:",
+      currentStage ? currentStage.user || currentStage.committee : null
+    );
+    console.log(
+      "Current Stage User/Committee Name:",
+      currentStageUserOrCommitteeName
+    );
 
     // Prepare response data
     const responseData = {
@@ -882,30 +947,30 @@ export const getWorkflowDetails = async (req, res) => {
         _id: workflow._id,
         status: workflow.status,
         currentStageIndex: workflow.currentStageIndex,
-        requiredDocuments: workflow.requiredDocuments.map(doc => ({
+        requiredDocuments: workflow.requiredDocuments.map((doc) => ({
           name: doc.title,
-          filePath: doc.filePath
+          filePath: doc.filePath,
         })),
-        additionalDocuments: workflow.additionalDocuments.map(doc => ({
+        additionalDocuments: workflow.additionalDocuments.map((doc) => ({
           name: doc.title,
-          filePath: doc.filePath
+          filePath: doc.filePath,
         })),
-        comments
+        comments,
       },
       currentStageUserOrCommitteeName,
       buttons: {
         canMoveForward,
         canMoveBackward,
         isOwner,
-        canApprove
-      }
+        canApprove,
+      },
     };
 
     // Return the workflow details to the client
     return res.status(200).json(responseData);
   } catch (error) {
-    console.error('Error fetching workflow details:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error fetching workflow details:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -943,18 +1008,18 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
 
       return {
         _id: workflow._id,
-        workflowName: workflow.name || 'Unnamed Workflow',
+        workflowName: workflow.name || "Unnamed Workflow",
         status: workflow.status,
         createdAt: workflow.createdAt,
         categoryName,
-        subCategoryName
+        subCategoryName,
       };
     });
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error('Error fetching workflows:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching workflows:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

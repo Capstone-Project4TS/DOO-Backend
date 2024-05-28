@@ -287,14 +287,16 @@ export async function handleData(reqDoc, addDoc, files) {
             templateId: doc.templateId,
             title: doc.title,
             sections: doc.sections,
-            filePath: [pdfUrl],
+            filePath: pdfUrl,
           });
 
           const savedDocument = await newDocument.save();
+          const id=savedDocument._id
           if (docs === reqDocs) {
-            savedReqDocIds.push(savedDocument._id);
+           
+            savedReqDocIds.push( id );
           } else {
-            savedAddDocIds.push(savedDocument._id);
+            savedAddDocIds.push(id );
           }
         } catch (error) {
           console.error("Error generating or uploading PDF:", error);

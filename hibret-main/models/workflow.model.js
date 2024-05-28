@@ -17,10 +17,7 @@ import { Schema, model } from 'mongoose';
       ref: "User",
       required: true,
     },
-    parentFolder: {
-      type: Schema.Types.ObjectId,
-      ref: "Folder",
-    },
+
     currentStageIndex: {
       type: Number,
       default: 0,
