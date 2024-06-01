@@ -91,7 +91,11 @@ export async function login(req, res) {
     req.session.data = {
       _id: user._id,
       username: user.username,
-      role: user.role_id,
+      role: {
+        _id: role._id,
+        name: role.roleName,
+        permissions: role.permissions // Include role permissions if needed
+      },
     };
     // Save the session (if you've modified data)
     await req.session.save();
