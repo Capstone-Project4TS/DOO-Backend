@@ -68,12 +68,17 @@ export async function createWorkflow(req, res) {
     const subCategoryName = workflowTemplate.subCategoryId.name;
 
     const year = new Date().getFullYear();
+    console.log("year", year)
     const quarter = getCurrentQuarter();
+    console.log("Quarter", quarter)
     const month = new Date().getMonth() + 1;
+    console.log("month", month)
     const monthName = new Date(year, month - 1).toLocaleString("default", {
       month: "long",
     });
 
+
+    console.log("month name", monthName)
     // Check if a workflow with the same name already exists for the current month
     const existingWorkflow = await Workflow.findOne({
       name: workflowName,
@@ -100,7 +105,7 @@ export async function createWorkflow(req, res) {
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
-    console.log(generatedDocuments);
+    console.log("Generated Documents",generatedDocuments);
 
     if (generatedDocuments.status !== 200) {
       return res
@@ -189,6 +194,7 @@ export async function createWorkflow(req, res) {
       parentFolder: monthFolder._id,
       name: workflowTemplate.name,
     });
+   
     if (!workflowFolder) {
       console.log("Workflow folder is undefined. Initializing...");
       workflowFolder = new Folder({
@@ -196,13 +202,23 @@ export async function createWorkflow(req, res) {
         parentFolder: monthFolder._id,
       });
       workflowFolder = await workflowFolder.save();
+      console.log("Workflow Folder", workflowFolder)
+      monthFolder.folders.push(workflowFolder._id);
+        await monthFolder.save();
+     
+    }  else {
+     
+      console.log("Workflow folder already exists...");
+      console.log(" Workflow Folder ",workflowFolder)
+    }
 
-      const index = workflowFolder.workflows.findIndex((workflow) => {
-        console.log("Workflow:", workflow);
-        console.log("Saved Workflow ID:", savedWorkflow._id);
-        console.log("Saved Workflow ID type:", typeof savedWorkflow._id);
-        return workflow._id.toString() === savedWorkflow._id.toString();
-      });
+    const index = workflowFolder.workflows.findIndex((workflow) => {
+      console.log("Workflow:", workflow.workflowId);
+      console.log("Saved Workflow ID:", savedWorkflow._id);
+      console.log("Saved Workflow ID type:", typeof savedWorkflow._id);
+      return workflow.workflowId.toString() === savedWorkflow._id.toString();
+    });
+    console.log("index",index)
 
       if (index === -1) {
         console.log("Workflow not found in folder. Adding...");
@@ -214,15 +230,11 @@ export async function createWorkflow(req, res) {
           ],
         });
         await workflowFolder.save();
-        monthFolder.folders.push(workflowFolder._id);
-        await monthFolder.save();
+        
       } else {
         console.log("Workflow already exists in folder. Skipping...");
       }
-    } else {
-      console.log(monthFolder);
-      console.log("Workflow folder already exists...");
-    }
+  
 
     return res
       .status(201)
