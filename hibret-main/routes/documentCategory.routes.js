@@ -8,6 +8,7 @@ import {
   updateDocumentCategory,
   deleteDocumentCategory,
   getCategoriesByRepositoryId,
+  getCatForDep
   
 } from "../controllers/documentCategoryController.js";
 
@@ -30,5 +31,7 @@ router.put("/category/:id", updateDocumentCategory);
 
 // // Route for deleting a document type by ID
 router.delete("/category/:id", deleteDocumentCategory);
+
+router.get("/category/dep/:dep_id", getCatForDep)
 
 export default router;

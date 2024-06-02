@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import DocumentCategory from "../models/documentCategory.model.js";
 import SubCategory from "../models/documentSubCategory.model.js";
 import Folder from "../models/folder.model.js";
@@ -245,6 +246,48 @@ export const deleteDocumentCategory = async (req, res) => {
   }
 };
 
+// get all categories under that department
+//sanitized & error handled
+export const getCatForDep = async(req, res) => {
+  const { dep_id } = req.params;
+
+  if (!dep_id) {
+    return res.status(400).json({ message: 'Department ID is required' });
+  }
+
+  try {
+    // Check if the department ID is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(dep_id)) {
+      return res.status(400).json({ message: 'Invalid Department ID' });
+    }
+
+    const categories = await DocumentCategory.find({ dep_id }).populate('subcategories', '_id name');
+
+    if (!categories || categories.length === 0) {
+      return res.status(404).json({ message: 'No categories found for this department' });
+    }
+
+    // Sanitize output to include only necessary fields
+    const sanitizedCategories = categories.map(category => ({
+      _id: category._id,
+      name: category.name,
+      subcategories: category.subcategories.map(subcategory => ({
+        _id: subcategory._id,
+        name: subcategory.name
+      }))
+    }));
+
+    res.status(200).json(sanitizedCategories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid Department ID format' });
+    }
+
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+}
 
 
 
