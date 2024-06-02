@@ -63,18 +63,6 @@ const documentTemplateSchema = new Schema({
             },
             default: undefined,
           },
-          // Define upload field specific to the upload type
-
-          upload: {
-            type: [String],
-            validate: {
-              validator: function () {
-                return this.type === "upload" ? !!this.upload : true;
-              },
-              message: "Upload is required for upload type",
-            },
-            default: undefined,
-          },
 
           // Additional fields for complex sections (optional)
           isRequired: {
