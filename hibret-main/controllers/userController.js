@@ -100,8 +100,8 @@ export async function createAccounts(req, res) {
 }
 
 export async function createUser(user) {
-  const { error } = validateRegisterInput(user);
-  if (error) return { error: error.details[0].message };
+  // const { error } = validateRegisterInput(user);
+  // if (error) return { error: error.details[0].message };
 
   try {
     async function hashPassword(password) {
@@ -228,12 +228,13 @@ export async function resetPassword(req, res) {
     const { password } = req.body;
 
     const user = await UserModel.findOne({ _id: id.userId });
-
+    console.log(user)
     if (!user) {
       return res.status(404).send({ error: "Username not Found" });
     }
+    const salt = await bcrypt.genSalt(10); // Generate a random salt
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     await UserModel.updateOne(
       { username: user.username },

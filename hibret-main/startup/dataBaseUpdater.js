@@ -2,7 +2,6 @@ import cron from "node-cron";
 import { updateUserStatus } from "../services/userService.js";
 import { createAccounts } from "../controllers/userController.js";
 import { updateAllRoles } from "../controllers/roleController.js";
-// import {createRepositories}  from  '../controllers/repositoryController.js';
 
 const schedules = [
   "0 0 * * *", // Runs at midnight
@@ -16,7 +15,6 @@ export default function startCronJob() {
       await updateUserStatus(); // Update statuses for all users
       await createAccounts();
       await updateAllRoles();
-      // await createRepositories();
 
       console.log("User status update complete.");
     } catch (error) {
