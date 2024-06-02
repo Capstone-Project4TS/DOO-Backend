@@ -1,6 +1,7 @@
 import upload from "../config/multerConfig.js";
 import { Router } from "express";
 const router = Router();
+import {uploadDoc} from "../services/fileService.js";
 import {
   createWorkflow,
   getAllWorkflows,
@@ -18,8 +19,8 @@ import {
 } from "../controllers/workflowController.js";
 
 // Route to create a new workflow instance
-router.post("/workflows", upload.array("files"), createWorkflow);
-
+router.post("/workflows", createWorkflow);
+router.post("/upload",upload.single("file"),uploadDoc);
 // Route to fetch all workflow instances
 router.get("/workflows", getAllWorkflows);
 router.get("/reqDoc/workflows/:id", getAllRequiredDocuments);

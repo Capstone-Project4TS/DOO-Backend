@@ -144,7 +144,7 @@ export async function getAllRequiredDocumentTemplates(req, res) {
   try {
     const template = await WorkflowTemplate.findById(req.params.id).populate(
       "requiredDocumentTemplates"
-    );
+    ).populate("additionalDocumentTemplate");
     if (!template) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
@@ -153,9 +153,10 @@ export async function getAllRequiredDocumentTemplates(req, res) {
 
     const documents = template.requiredDocumentTemplates;
     const additional = template.additionalDoc;
+    const additionalDoc=template.additionalDocumentTemplate;
 
     // Send document contents array as response
-    res.status(200).json({ documents, additional });
+    res.status(200).json({ documents, additionalDoc,additional });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
