@@ -1,5 +1,6 @@
 import Folder from "../models/folder.model.js";
 import UserModel from "../models/users.model.js";
+import Workflow from "../models/workflow.model.js";
 
 // Helper function to create folders and subfolders recursively
 export const createFolderHierarchy = async (parentFolderId, year) => {
@@ -46,12 +47,57 @@ export const createFolderHierarchy = async (parentFolderId, year) => {
   return savedYearFolder._id; // Return the ID of the year folder
 };
 
+const getFolderHierarchy = async (folderId) => {
+  const folder = await Folder.findById(folderId).populate('workflows.workflowId');
+
+  if (!folder) return null;
+
+  const children = await Promise.all(
+    folder.folders.map(async (subFolder) => await getFolderHierarchy(subFolder._id))
+  );
+
+  const getWorkflowDetails = async (workflow) => {
+    const workflowDoc = await Workflow.findById(workflow.workflowId)
+      .populate('requiredDocuments')
+      .populate('additionalDocuments');
+    console.log("Fetched Workflow:", workflowDoc);
+
+    if (!workflowDoc) return null;
+
+    const documentNames = [
+      ...workflowDoc.requiredDocuments.map(doc => doc.title),
+      ...workflowDoc.additionalDocuments.map(doc => doc.title)
+    ];
+
+    return {
+      workflowName: workflowDoc.name,
+      documentNames,
+    };
+  };
+
+  let workflowDetails = [];
+  if (folder.workflows && folder.workflows.length > 0) {
+    workflowDetails = await Promise.all(
+      folder.workflows.map(async (workflow) => await getWorkflowDetails(workflow))
+    );
+  }
+
+  return {
+    name: folder.name,
+    workflows: workflowDetails.filter(workflow => workflow !== null),
+    children: children.filter(child => child !== null),
+  };
+};
+
+
 // Controller function to fetch repositories with folders and workflows
 export const fetchRepositories = async (req, res) => {
   try {
     // Validate userId from the token
     if (!req.user || !req.user.userId) {
-      return res.status(401).json({ error: "Unauthorized access, no user ID found in token." });
+      return res
+        .status(401)
+        .json({ error: "Unauthorized access, no user ID found in token." });
     }
 
     // Retrieve user and role information
@@ -65,75 +111,29 @@ export const fetchRepositories = async (req, res) => {
 
     const depId = user.role_id.depId;
     if (!user.role_id || !depId) {
-      return res.status(400).json({ error: "User does not have an assigned department." });
+      return res
+        .status(400)
+        .json({ error: "User does not have an assigned department." });
     }
-  
+
     // Retrieve top-level department folder
     const departmentFolder = await Folder.findOne({ parentFolder: depId });
 
     if (!departmentFolder) {
-      return res.status(404).json({ error: 'No folders found for this department.' });
+      return res
+        .status(404)
+        .json({ error: "No folders found for this department." });
     }
-
-    const getFolderHierarchy = async (folderId) => {
-      const folder = await Folder.findById(folderId).populate("folders");
-      if (!folder) return null;
-
-      const children = await Promise.all(
-        folder.folders.map(async (subFolder) => await getFolderHierarchy(subFolder._id))
-      );
-
-      return {
-        name: folder.name,
-        children: children.filter((child) => child !== null),
-      };
-    };
 
     const hierarchicalData = await getFolderHierarchy(departmentFolder._id);
-
+    console.log(hierarchicalData);
     return res.status(200).json(hierarchicalData);
   } catch (error) {
-    console.error("Error fetching repositories with folders and workflows:", error);
+    console.error(
+      "Error fetching repositories with folders and workflows:",
+      error
+    );
     return res.status(500).json({ error: "Internal server error." });
-  }
-};
-
-
-// Controller function to create a new folder
-export const createFolder = async (req, res) => {
-  try {
-    const { name, parentFolder, folderPath, ownerId } = req.body;
-    const folder = new Folder({ name, parentFolder, folderPath, ownerId });
-    const newFolder = await folder.save();
-    res.status(201).json(newFolder);
-  } catch (error) {
-    console.error("Error creating folder:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-// Controller function to retrieve all folders
-export const getAllFolders = async (req, res) => {
-  try {
-    const folders = await Folder.find();
-    res.status(200).json(folders);
-  } catch (error) {
-    console.error("Error retrieving folders:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-// Controller function to retrieve a specific folder by its ID
-export const getFolderById = async (req, res) => {
-  try {
-    const folder = await Folder.findById(req.params.id);
-    if (!folder) {
-      return res.status(404).json({ error: "Folder not found" });
-    }
-    res.status(200).json(folder);
-  } catch (error) {
-    console.error("Error retrieving folder by ID:", error);
-    res.status(500).json({ error: "Internal server error" });
   }
 };
 

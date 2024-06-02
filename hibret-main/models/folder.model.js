@@ -14,8 +14,8 @@ const folderSchema = new mongoose.Schema({
   folders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Folder' }],
   workflows: [
     {
-      workflowId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workflow' , select: false },
-      documents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Document' , select: false }],
+      workflowId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workflow'  },
+      documents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Document'  }],
      
     }
     
