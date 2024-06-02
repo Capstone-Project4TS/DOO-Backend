@@ -20,20 +20,17 @@ function getCurrentQuarter() {
 }
 
 export async function createWorkflow(req, res) {
+  // const documentData = JSON.parse(req.body.documentData);
+  console.log("Received request body:", req.body); // Log the entire request body
+
   const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
-  const files = req.files;
+  
   if (!reqDoc || reqDoc.length === 0) {
-    return req.status(400).json({ message: "No data provided" });
+    console.log("No reqDoc provided");
+    return res.status(400).json({ message: "No data provided" });
   }
-  let reqDocs = [];
-  let addDocs = [];
-  try {
-    reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
-    addDocs = addDoc ? JSON.parse(addDoc) : [];
-  } catch (error) {
-    console.error("Invalid JSON format in reqDoc or addDoc:", error);
-    return res.status(400).json({ message: "Invalid JSON format" });
-  }
+
+
   try {
     const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId)
       .populate({
@@ -56,7 +53,7 @@ export async function createWorkflow(req, res) {
       let assignedUser;
       if (stage.hasCondition) {
         // Evaluate condition and select appropriate user(s)
-        assignedUser = await assignUserWithCondition(stage, reqDocs);
+        assignedUser = await assignUserWithCondition(stage, reqDoc);
       } else {
         // Select user with least workload for the role
         assignedUser = await assignUserWithoutCondition(stage);
@@ -66,7 +63,7 @@ export async function createWorkflow(req, res) {
 
     // Define the criteria for the hierarchy
     const repositoryId = workflowTemplate.depId;
-    console.log(repositoryId);
+    console.log("Dep Id",repositoryId);
     const categoryName = workflowTemplate.categoryId.name;
     const subCategoryName = workflowTemplate.subCategoryId.name;
 
@@ -102,7 +99,7 @@ export async function createWorkflow(req, res) {
     }
 
     // Generate PDF from document data
-    const generatedDocuments = await handleData(reqDoc, addDoc, files);
+    const generatedDocuments = await handleData(reqDoc, addDoc);
     console.log(generatedDocuments);
 
     if (generatedDocuments.status !== 200) {
