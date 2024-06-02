@@ -153,15 +153,15 @@ export const generatePDF = async (formData, urls, pdfName) => {
 export  async function uploadDoc (req, res){
   try {
     const file = req.file;
-    const tempId = req.body.tempId;
+    // const tempId = req.body.tempId;
 
-    if (!file || !tempId) {
-      return res.status(400).json({ error: "File and tempId are required" });
+    if (!file) {
+      return res.status(400).json({ error: "File is required" });
     }
 
     const url = await uploadFilesToCloudinary(file);
 
-    const mediaDoc = { url, tempId };
+    const mediaDoc = { url };
     const savedMedia = await new Media(mediaDoc).save();
 
     res.status(201).json({ id: savedMedia._id });

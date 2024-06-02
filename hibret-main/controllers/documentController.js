@@ -1,8 +1,11 @@
 import Document from "../models/document.model.js";
 import fs from "fs";
-import {generatePDF,uploadFilesToCloudinary,uploadPDFToCloudinary} from '../services/fileService.js'
-import Media from "../models/media.model.js"
-
+import {
+  generatePDF,
+  uploadFilesToCloudinary,
+  uploadPDFToCloudinary,
+} from "../services/fileService.js";
+import Media from "../models/media.model.js";
 
 // Controller function to get all documents
 const getAllDocuments = async (req, res) => {
@@ -89,7 +92,6 @@ const deleteDocumentById = async (req, res) => {
   }
 };
 
-
 // Function to handle data and generate PDFs
 export async function handleData(reqDocs, addDocs) {
   try {
@@ -105,9 +107,23 @@ export async function handleData(reqDocs, addDocs) {
             if (content.type === "upload" && Array.isArray(content.value)) {
               const fileIds = content.value;
               try {
-                const mediaDocs = await Media.find({ _id: { $in: fileIds }, tempId: doc.templateId });
-                mediaDocs.forEach((mediaDoc, index) => {
-                  fileUrls[content.value[index]] = mediaDoc.url;
+                // Fetch media documents by their IDs
+                const mediaDocs = await Media.find({ _id: { $in: fileIds } });
+                const mediaDocMap = new Map(
+                  mediaDocs.map((mediaDoc) => [
+                    mediaDoc._id.toString(),
+                    mediaDoc.url,
+                  ])
+                );
+
+                // Replace IDs in content.value with URLs
+                content.value = content.value.map(
+                  (id) => mediaDocMap.get(id) || id
+                );
+
+                // Store URLs in fileUrls for later use
+                mediaDocs.forEach((mediaDoc) => {
+                  fileUrls[mediaDoc._id.toString()] = mediaDoc.url;
                   console.log(`Mapped URL: ${mediaDoc._id} -> ${mediaDoc.url}`);
                 });
               } catch (error) {
@@ -145,12 +161,11 @@ export async function handleData(reqDocs, addDocs) {
           });
 
           const savedDocument = await newDocument.save();
-          const id=savedDocument._id
+          const id = savedDocument._id;
           if (docs === reqDocs) {
-           
-            savedReqDocIds.push( id );
+            savedReqDocIds.push(id);
           } else {
-            savedAddDocIds.push(id );
+            savedAddDocIds.push(id);
           }
         } catch (error) {
           console.error("Error generating or uploading PDF:", error);
@@ -167,7 +182,8 @@ export async function handleData(reqDocs, addDocs) {
     return {
       status: 200,
       body: {
-        message: "PDFs created, uploaded, and saved to the database successfully",
+        message:
+          "PDFs created, uploaded, and saved to the database successfully",
         reqDocIds: savedReqDocIds,
         addDocIds: savedAddDocIds,
       },
@@ -177,7 +193,6 @@ export async function handleData(reqDocs, addDocs) {
     return { status: 500, body: { message: "Internal server error" } };
   }
 }
-
 
 export default {
   getAllDocuments,
