@@ -401,12 +401,16 @@ export async function resendInvitationEmail(req, res) {
         .json({ success: false, message: "User not found." });
     }
      const defaultPassword = await generateDefaultPassword();
+    const hashedPassword = await hashPassword(defaultPassword);
     const email = await EmailService.sendInvitation(
       user.email,
       user.username,
       defaultPassword
     );
+    
     await EmailService.sendEmail(email);
+    user.password = hashedPassword;
+    await user.save();
 
     // Update account creation status to "Sent" after sending the invitation
     await UserService.updateAccountCreationStatus(user._id);
