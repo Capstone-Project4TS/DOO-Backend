@@ -8,6 +8,8 @@ import * as EmailService from "../services/emailService.js";
 import * as UserService from "../services/userService.js";
 import otpGenerator from "otp-generator";
 
+// Admin role ID for comparison
+const ADMIN_ROLE_ID = new mongoose.Types.ObjectId("66374bd0fdfae8633a05d11e");
 
 // POST: http://localhost:5000/api/admin/user/create
 export async function createAccounts(req, res) {
@@ -100,33 +102,38 @@ export async function createAccounts(req, res) {
       console.error("Error deleting users:", error);
     }
 
-    return res.status(200).json({
+    return {
       message: "Users synchronization completed successfully",
       createdUsers,
       updatedUsers,
       deletedUsers,
-    });
+    };
   } catch (error) {
     console.error("Error synchronizing users:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    return { message: "Internal server error" };
   }
 }
 
 // Endpoint to get all users in the database
 export async function getAllUsers(req, res) {
   try {
-    const users = await UserModel.find({});
-    if (!users || users.length === 0) {
-      return res.status(404).json({ message: "No users found" });
-    }
-
-    const sanitizedUsers = users.map((user) => ({
-      username: user.username,
-      email: user.email,
-      role_id: user.role_id,
-      status: user.status,
-    }));
-
+     // Fetch all users
+     const users = await UserModel.find({}).populate('role_id', 'roleName');
+    console.log(users)
+     if (!users || users.length === 0) {
+       return res.status(404).json({ message: "No users found" });
+     }
+ 
+     let sanitizedUsers = users.map(user => ({
+       userId: user._id,
+       username: user.username,
+       email: user.email,
+       role_id: user.role_id._id,
+       roleName: user.role_id.roleName,
+       status: user.status,
+     }));
+ 
+     sanitizedUsers = sanitizedUsers.filter(user => !user.role_id.equals(ADMIN_ROLE_ID));
     return res.status(200).json({ users: sanitizedUsers });
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -400,7 +407,7 @@ export async function activateAccount(req, res) {
   }
 }
 
-// filter users
+// filter users by their roles and status  
 export async function filterUsersByRoleAndStatus(req, res) {
   const { role_id, status, accountCreationStatus, activationStatus } = req.body;
 
@@ -457,3 +464,39 @@ export async function filterUsersByRoleAndStatus(req, res) {
   }
 }
 
+
+export async function searchUsers(req, res){
+
+  const { username, email, role_id, status } = req.query;
+
+  try {
+    // Construct query object
+    let query = {};
+
+    // Add filters to the query object if provided
+    if (username) {
+      query.username = { $regex: new RegExp(username, 'i') }; // Case-insensitive search
+    }
+    if (email) {
+      query.email = { $regex: new RegExp(email, 'i') }; // Case-insensitive search
+    }
+    if (role_id) {
+      query.role_id = role_id;
+    }
+    if (status) {
+      query.status = status;
+    }
+
+    // Execute the query
+    const users = await UserModel.find(query, 'username email role_id status'); // Specify fields to return
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No users found matching the criteria" });
+    }
+
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error("Error searching users:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
