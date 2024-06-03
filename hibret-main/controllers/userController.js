@@ -400,11 +400,11 @@ export async function resendInvitationEmail(req, res) {
         .status(404)
         .json({ success: false, message: "User not found." });
     }
-
+     const defaultPassword = await generateDefaultPassword();
     const email = await EmailService.sendInvitation(
       user.email,
       user.username,
-      user.otp
+      defaultPassword
     );
     await EmailService.sendEmail(email);
 
