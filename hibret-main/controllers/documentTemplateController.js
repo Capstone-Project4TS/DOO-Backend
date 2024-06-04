@@ -1,82 +1,68 @@
 import DocumentTemplate from "../models/documentTemplate.model.js";
 
 // Create a new document template
+// error handled 
 export async function createDocumentTemplate(req, res) {
   try {
-    const {
-      title,
-      categoryId,
-      subCategoryId,
-      sections,
-      conditionLogic,
-      repositoryId,
-    } = req.body;
+    const { title, subCategoryId, categoryId, sections, depId } = req.body;
 
     // Input validation (required fields)
-    if (!title || !subCategoryId || !sections.length || !repositoryId) {
+    if (!title || !subCategoryId || !categoryId || !sections || !sections.length || !depId) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Validate IDs (assuming they are ObjectIds)
-    if (
-      !mongoose.Types.ObjectId.isValid(subCategoryId) ||
-      !mongoose.Types.ObjectId.isValid(repositoryId)
-    ) {
-      return res
-        .status(400)
-        .json({ error: "Invalid subcategory or repository ID" });
+    if (!mongoose.Types.ObjectId.isValid(subCategoryId) ||
+        !mongoose.Types.ObjectId.isValid(depId) ||
+        !mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ error: "Invalid subcategory, category, or department ID" });
     }
 
     // Check if a document template with the same title already exists
     const existingTemplate = await DocumentTemplate.findOne({ title });
     if (existingTemplate) {
-      return res
-        .status(400)
-        .json({
-          message: "A document template with the same name already exists.",
-        });
+      return res.status(400).json({ error: "A document template with the same title already exists" });
     }
 
     // Initialize an empty array to store eligible conditions
     let eligibleConditions = [];
+    let conditionLogic = false;
 
-    if (conditionLogic) {
-      // Iterate over each section to check for conditional logic
-      sections.forEach((section) => {
-        // Iterate over each content in the section
-        section.content.forEach((content) => {
-          // Check if the content has conditional logic
-          if (content.conditionLogic) {
-            // Add the content's title and type as an eligible condition
-            eligibleConditions.push({
-              fieldName: content.title,
-              dataType: content.type,
-            });
-          }
-        });
+    // Extract eligible conditions and check if any content has conditionLogic set to true
+    sections.forEach((section) => {
+      section.content.forEach((content) => {
+        if (content.conditionLogic) {
+          eligibleConditions.push({
+            fieldName: content.title,
+            dataType: content.type,
+          });
+          conditionLogic = true; // Set conditionalLogic to true if any content has conditionLogic
+        }
       });
-    }
+    });
 
+    // Create a new document template
     const newTemplate = new DocumentTemplate({
       title,
-      categoryId,
       subCategoryId,
+      categoryId,
       sections,
       conditionLogic,
       eligibleConditions,
-      repositoryId,
+      depId,
     });
 
     await newTemplate.save();
-    return res.status(201).json(newTemplate);
+    return res.status(201).json({ message: "Document template created successfully", newTemplate });
   } catch (err) {
+    if (err.code === 11000) {
+      // Duplicate key error
+      return res.status(400).json({ error: "A document template with the same title already exists" });
+    }
     console.error("Error in createDocumentTemplate:", err);
-    return res
-      .status(400)
-      .json({ message: "Failed to create document template." });
+    return res.status(500).json({ error: "Failed to create document template" });
   }
 }
-
 // Get all document templates
 export async function getAllDocumentTemplates(req, res) {
   try {
