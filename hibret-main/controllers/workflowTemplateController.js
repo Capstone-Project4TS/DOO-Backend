@@ -33,70 +33,69 @@ export const createWorkflowTemplate = async (req, res) => {
       !mongoose.Types.ObjectId.isValid(subCategoryId) ||
       !mongoose.Types.ObjectId.isValid(depId)
     ) {
-      return res
-        .status(400)
-        .json({ error: "Invalid category, subcategory, or repository ID" });
+      return res.status(400).json({ error: "Invalid category, subcategory, or repository ID" });
     }
 
     // Validate stages
-    stages.forEach((stage) => {
+    for (const stage of stages) {
       if (!stage.stageTitle || typeof stage.stageTitle !== "string") {
-        throw new Error("Invalid stage data: Missing or invalid stage title");
+        return res.status(400).json({ error: "Invalid stage data: Missing or invalid stage title" });
       }
 
       // Validate condition
       if (stage.hasCondition) {
         if (!stage.condition) {
-          throw new Error("Condition required when hasCondition is true");
-        } else {
-          // Validate condition variants (if present)
-          if (stage.conditionVariants && stage.conditionVariants.length) {
-            if (!stage.hasCondition) {
-              throw new Error(
-                "conditionVariants require hasCondition to be true"
-              );
+          return res.status(400).json({ error: "Condition required when hasCondition is true" });
+        }
+
+        // Validate condition variants (if present)
+        if (stage.conditionVariants && stage.conditionVariants.length) {
+          if (!stage.hasCondition) {
+            return res.status(400).json({ error: "conditionVariants require hasCondition to be true" });
+          }
+
+          for (const variant of stage.conditionVariants) {
+            if (
+              !variant.condition_name ||
+              !variant.operator ||
+              !variant.value ||
+              !(
+                typeof variant.value === "number" ||
+                typeof variant.value === "string"
+              )
+            ) {
+              return res.status(400).json({ error: "Invalid condition variant: Missing required properties or invalid value format" });
             }
-            stage.conditionVariants.forEach((variant) => {
-              if (
-                !variant.condition_name ||
-                !variant.operator ||
-                !variant.value ||
-                !(
-                  typeof variant.value === "number" ||
-                  typeof variant.value === "string"
-                )
-              ) {
-                throw new Error(
-                  "Invalid condition variant: Missing required properties or invalid value format"
-                );
-              }
-              // Validate approverType within conditionVariants
-              if (
-                !variant.approverType ||
-                !["Single Person", "Committee"].includes(variant.approverType)
-              ) {
-                throw new Error(
-                  "Invalid condition variant: Missing or invalid approver type"
-                );
-              }
-            });
+
+            // Validate approverType within conditionVariants
+            if (
+              !variant.approverType ||
+              !["Single Person", "Committee"].includes(variant.approverType)
+            ) {
+              return res.status(400).json({ error: "Invalid condition variant: Missing or invalid approver type" });
+            }
           }
         }
 
-        // Add validation for condition structure (if needed)
       } else {
         if (stage.condition || stage.conditionVariants?.length) {
-          throw new Error(
-            "Condition and conditionVariants should be empty when hasCondition is false"
-          );
+          return res.status(400).json({ error: "Condition and conditionVariants should be empty when hasCondition is false" });
         }
         if (!["Single Person", "Committee"].includes(stage.approverType)) {
-          throw new Error(
-            "Invalid stage data: Missing required properties or invalid approver type"
-          );
+          return res.status(400).json({ error: "Invalid stage data: Missing required properties or invalid approver type" });
         }
       }
-    });
+    }
+
+    // Check if an additional document is required and find the additional document template
+    let additionalDocumentTemplate = null;
+    if (additionalDoc) {
+      const additionalDocTemplate = await DocumentTemplate.findOne({ title: "Additional Document" });
+      if (!additionalDocTemplate) {
+        return res.status(404).json({ error: "Additional document template not found" });
+      }
+      additionalDocumentTemplate = additionalDocTemplate._id;
+    }
 
     const newTemplate = new WorkflowTemplate({
       name,
@@ -105,13 +104,18 @@ export const createWorkflowTemplate = async (req, res) => {
       stages,
       requiredDocumentTemplates,
       additionalDoc,
+      additionalDocumentTemplate,
       depId,
     });
 
     const savedTemplate = await newTemplate.save();
 
-    res.status(201).json(savedTemplate);
+    res.status(201).json({ message: "Workflow template created successfully", savedTemplate });
   } catch (err) {
+    if (err.code === 11000) {
+      // Duplicate key error
+      return res.status(400).json({ error: "A workflow template with the same name already exists" });
+    }
     console.error("Error creating workflow template:", err);
     res.status(500).json({ error: "Internal server error" });
   }
