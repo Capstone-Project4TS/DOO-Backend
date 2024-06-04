@@ -955,6 +955,7 @@ export const getWorkflowDetails = async (req, res) => {
     const responseData = {
       workflow: {
         _id: workflow._id,
+        name: workflow.name,
         status: workflow.status,
         currentStageIndex: workflow.currentStageIndex,
         requiredDocuments: workflow.requiredDocuments.map((doc) => ({
