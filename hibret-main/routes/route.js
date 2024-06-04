@@ -27,8 +27,8 @@ router.route("/logout").post(isLoggedIn, auth.Logout); // login in app
 
 /** GET Methods */
 router.route("/admin/getAllUsers").get(Auth, user.getAllUsers); // verify generated OTP
-router.route("/verifyOTP").get(Auth, user.verifyOTP); // verify generated OTP
-router.route("/createResetSession").post(user.createResetSession); // reset all the variables
+router.route("/verifyOTP").post(Auth, user.verifyOTP); // verify generated OTP
+router.route("/createResetSession").get(user.createResetSession); // reset all the variables
 router.route("/filterUsers").get(user.filterUsersByRoleAndStatus); // get users by role and status
 
 /** PUT Methods */
