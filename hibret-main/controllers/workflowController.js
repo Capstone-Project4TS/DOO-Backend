@@ -3,6 +3,7 @@ import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import User from "../models/users.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
+import Document from "../models/document.model.js";
 import Folder from "../models/folder.model.js";
 import mongoose from "mongoose";
 const { ObjectId } = mongoose.Types;
