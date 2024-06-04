@@ -131,7 +131,10 @@ export async function getAllUsers(req, res) {
        role_id: user.role_id._id,
        roleName: user.role_id.roleName,
        status: user.status,
+       activationStatus:user.activationStatus,
+       accountCreationStatus:user.accountCreationStatus,
      }));
+ 
  
      sanitizedUsers = sanitizedUsers.filter(user => !user.role_id.equals(ADMIN_ROLE_ID));
     return res.status(200).json({ users: sanitizedUsers });
