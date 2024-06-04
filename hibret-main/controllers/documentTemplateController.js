@@ -1,4 +1,6 @@
 import DocumentTemplate from "../models/documentTemplate.model.js";
+import mongoose from "mongoose";
+import Document from '../models/document.model.js'; // Adjust the import as per your project structure
 
 // Create a new document template
 // error handled 
