@@ -1,5 +1,8 @@
 import express from "express";
 import morgan from "morgan";
+import { createServer } from "http";  // Import createServer from http
+import { Server } from "socket.io"; 
+import mongoose from 'mongoose';
 import connect from "./config/conn.js";
 import router from "./routes/route.js";
 import documentRoutes from "./routes/document.routes.js";
@@ -23,6 +26,14 @@ import path from "path";
 
 const app = express();
 /** middlewares */
+
+const server = createServer(app);     // Create an HTTP server
+const io = new Server(server, {
+  cors: {
+    origin: "*",  // Allow all origins (configure this according to your needs)
+    methods: ["GET", "POST"],
+  }
+});
 
 dotenv.config();
 app.use(express.json());
@@ -89,3 +100,21 @@ app.use(
 app.use("/folder", folderRoutes);
 app.use("/initiate", userWorkflow, workflowRoutes);
  
+// Socket.io connection handling
+io.on("connection", (socket) => {
+  console.log("A user connected");
+
+  // Join a room named after the user ID
+  socket.on("join", (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined room`);
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log("User disconnected");
+  });
+});
+
+// Export io for use in other modules
+export { io };

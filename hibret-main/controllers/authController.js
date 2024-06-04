@@ -88,6 +88,7 @@ export async function login(req, res) {
     await UserServise.resetLoginAttempts(email);
 
     // Set user information on the session
+    //not tested
     req.session.data = {
       _id: user._id,
       username: user.username,

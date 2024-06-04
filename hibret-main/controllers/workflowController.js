@@ -4,7 +4,10 @@ import User from "../models/users.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
 import Folder from "../models/folder.model.js";
+import { sendNotification } from "./notification.js";
+import { io } from '../server.js';
 import mongoose from "mongoose";
+import Committee from "../models/committee.model.js";
 const { ObjectId } = mongoose.Types;
 
 // Utility function to flatten nested arrays
@@ -120,14 +123,15 @@ export async function createWorkflow(req, res) {
     // Save workflow instance
     const savedWorkflow = await newWorkflow.save();
 
+
     // Update or create user workflow entry
     const userWorkflows = [];
     for (const user of assignedUsers) {
-      const { user: userId, stageIndex } = user;
+      const { user: assignedUserId, stageIndex } = user;
 
       // Update or create user workflow entry
       let userWorkflow = await UserWorkflow.findOneAndUpdate(
-        { userId },
+        { assignedUserId },
         {
           $addToSet: {
             workflows: {
@@ -142,6 +146,18 @@ export async function createWorkflow(req, res) {
       // Check if userWorkflow is not null before pushing it into the array
       if (userWorkflow) {
         userWorkflows.push(userWorkflow);
+      }
+
+      // Send notification to the user or committee members
+      const committee = await Committee.findById(assignedUserId).populate("members");
+      if (committee) {
+        for (const member of committee.members) {
+          await sendNotification(member._id, userId, `You have been assigned to a new workflow as part of the committee ${committee.name}: ${workflowName}.`, savedWorkflow._id);
+        }
+        await sendNotification(committee.chairperson, userId, `You have been assigned to a new workflow as the chairperson of committee ${committee.name} : ${workflowName}.`, savedWorkflow._id);
+
+      } else {
+        await sendNotification(assignedUserId, userId, `You have been assigned to a new workflow: ${workflowName}.`, savedWorkflow._id);
       }
     }
 
@@ -588,6 +604,17 @@ export const moveStageForward = async (req, res) => {
         { userId: nextUserId, "workflows.workflowId": workflowId },
         { $set: { "workflows.$.isActive": true } }
       );
+      // Send notification to the user or committee members
+      const committee = await Committee.findById(nextUserId).populate("members");
+      if (committee) {
+        for (const member of committee.members) {
+          await sendNotification(member._id, userId, `Workflow ${workflow.workflowName} has reached your stage as part of the committee ${committee.name}.}`, workflowId);
+        }
+        await sendNotification(committee.chairperson, userId, `Workflow ${workflow.workflowName} has reached your stage as the chairperson of committee ${committee.name}.`, workflowId);
+
+      } else {
+        await sendNotification(nextUserId, userId, `Workflow ${workflow.workflowName} has reached your stage.`, workflowId);
+      }
     }
 
     await workflow.save();
@@ -658,6 +685,8 @@ export const moveStageBackward = async (req, res) => {
           fromUser: userId,
           toUser: workflow.user,
         });
+        await sendNotification(workflow.user, userId, `Workflow ${workflow.workflowName} was reverted back to you for editing.`, workflowId);
+
         return res.status(200).json({
           workflow,
           message: "Workflow reverted to owner for editing.",
@@ -667,6 +696,18 @@ export const moveStageBackward = async (req, res) => {
           { userId: prevUserId, "workflows.workflowId": workflowId },
           { $set: { "workflows.$.isActive": true } }
         );
+        // Send notification to the user or committee members
+        const committee = await Committee.findById(prevUserId).populate("members");
+        if (committee) {
+          for (const member of committee.members) {
+            await sendNotification(member._id, userId, `Workflow ${workflow.workflowName} was reverted back to you as part of the committee ${committee.name}.}`, workflowId);
+          }
+          await sendNotification(committee.chairperson, userId, `Workflow ${workflow.workflowName} was reverted back to you as the chairperson of committee ${committee.name}.`, workflowId);
+
+        } else {
+          await sendNotification(prevUserId, userId, `Workflow ${workflow.workflowName} was reverted back to you.`, workflowId);
+        }
+
       }
     }
 
@@ -722,7 +763,12 @@ export const approveWorkflow = async (req, res) => {
     // Check if it's the last stage
     if (currentStageIndex === workflow.assignedUsers.length - 1) {
       workflow.status = "Approved";
+
       await workflow.save();
+
+      //send owner notification that the workflow was approved
+      await sendNotification(workflow.user, userId, `Workflow ${workflow.workflowName} was approved.`, workflowId);
+
       return res.status(200).json({ workflow });
     } else {
       return res.status(400).json({ message: "Not at the last stage" });
@@ -777,7 +823,12 @@ export const rejectWorkflow = async (req, res) => {
     // Check if it's the last stage
     if (currentStageIndex === workflow.assignedUsers.length - 1) {
       workflow.status = "Rejected";
+
       await workflow.save();
+
+      //send owner notification that the workflow was rejected
+      await sendNotification(workflow.user, userId, `Workflow ${workflow.workflowName} was rejected.`, workflowId);
+
       return res.status(200).json({ workflow });
     } else {
       return res.status(400).json({ message: "Not at the last stage" });
@@ -905,8 +956,8 @@ export const getWorkflowDetails = async (req, res) => {
     const comments = isOwner
       ? workflow.comments
       : workflow.comments.filter((comment) =>
-          comment.visibleTo.some((user) => user._id.toString() === userId)
-        );
+        comment.visibleTo.some((user) => user._id.toString() === userId)
+      );
 
     // Get the current stage user or committee name
     let currentStageUserOrCommitteeName = "";

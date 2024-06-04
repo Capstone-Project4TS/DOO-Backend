@@ -10,7 +10,7 @@ import {
 // Create a new user workflow
 router.post("/userWorkflow", createUserWorkflow);
 
-// Get user workflows by user ID
+// Get user's workflows by user ID
 router.get("/userWorkflow/:userId", getUserWorkflows);
 
 // Update user workflow status (isActive)
