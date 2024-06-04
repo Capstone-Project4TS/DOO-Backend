@@ -1,129 +1,11 @@
 import Document from "../models/document.model.js";
-import PDFDocument from "pdfkit";
 import fs from "fs";
-import path from "path";
-import cloudinary from "../config/cloudinary.js";
-
-const uploadPDFToCloudinary = async (pdfBuffer, pdfName) => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { resource_type: "raw", format: "pdf", public_id: pdfName.split(".")[0] },
-      (error, result) => {
-        if (error) {
-          return reject(error);
-        }
-        resolve(result.secure_url);
-      }
-    );
-
-    uploadStream.end(pdfBuffer);
-  });
-};
-
-const uploadFilesToCloudinary = async (files) => {
-  const uploadPromises = files.map(async (file) => {
-    const filePath =
-      "C:/Users/AA/Desktop/CapstoneProject/DOO-Backend/hibret-main/uploads/" +
-      file.filename;
-    try {
-      const fileBuffer = await fs.promises.readFile(filePath);
-
-      // Return a new Promise to handle the upload process
-      return new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { resource_type: "auto", public_id: file.originalname.split(".")[0] },
-          (error, result) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve(result.secure_url);
-            }
-          }
-        );
-
-        // Write the file buffer to the upload stream
-        uploadStream.end(fileBuffer);
-      });
-    } catch (error) {
-      console.error("Error uploading file to Cloudinary:", error);
-      throw error; // Rethrow the error to handle it in the caller function
-    }
-  });
-
-  try {
-    return await Promise.all(uploadPromises);
-  } catch (error) {
-    console.error("Error uploading files:", error);
-    throw error; // Rethrow the error to handle it in the caller function
-  }
-};
-
-const generatePDF = async (formData, urls, pdfName) => {
-  const doc = new PDFDocument();
-  const pdfPath = path.join("uploads", `${pdfName}.pdf`);
-  console.log(formData);
-  console.log(urls);
-  doc.pipe(fs.createWriteStream(pdfPath));
-
-  // Replace upload fields with URLs in formData
-  formData.sections.forEach((section) => {
-    section.content.forEach((content) => {
-      if (content.type === "upload" && Array.isArray(content.upload)) {
-        content.upload = content.upload.map((upload) => urls[upload] || upload);
-      }
-    });
-  });
-
-  return new Promise((resolve, reject) => {
-    const writeStream = fs.createWriteStream(pdfPath);
-
-    writeStream.on("finish", () => {
-      resolve(pdfPath);
-    });
-
-    writeStream.on("error", (error) => {
-      reject(error);
-    });
-
-    doc.pipe(writeStream);
-    doc.fontSize(18).text(formData.title, { underline: true }).moveDown();
-
-    formData.sections.forEach((section) => {
-      doc.fontSize(16).text(section.title, { underline: true }).moveDown();
-
-      section.content.forEach(async (content) => {
-        doc.fontSize(14).fillColor("black").text(content.title, { bold: true });
-
-        if (content.type === "upload" && content.upload) {
-          content.upload.forEach((upload) => {
-            const url = upload;
-            console.log(`Processing upload: ${upload}`); // Debug statement
-            console.log(`Found URL: ${url}`); // Debug statement
-
-            if (url) {
-              doc.fontSize(12).fillColor("blue").text(url, {
-                link: url,
-                underline: true,
-              });
-            } else {
-              console.log(`No URL found for: ${upload}`);
-            }
-          });
-        } else {
-          doc
-            .fontSize(12)
-            .fillColor("black")
-            .text(content.value || "");
-        }
-        doc.moveDown();
-      });
-
-      doc.addPage();
-    });
-
-    doc.end();
-  });
-};
+import {
+  generatePDF,
+  uploadFilesToCloudinary,
+  uploadPDFToCloudinary,
+} from "../services/fileService.js";
+import Media from "../models/media.model.js";
 
 // Controller function to get all documents
 const getAllDocuments = async (req, res) => {
@@ -210,55 +92,43 @@ const deleteDocumentById = async (req, res) => {
   }
 };
 
-
 // Function to handle data and generate PDFs
-export async function handleData(reqDoc, addDoc, files) {
+export async function handleData(reqDocs, addDocs) {
   try {
-    console.log("reqDoc:", reqDoc);
-    console.log("addDoc:", addDoc);
-    console.log("Files:", files);
-
-    if (!reqDoc || reqDoc.length === 0) {
-      return { status: 400, body: { message: "No data provided" } };
-    }
-
-    let reqDocs = [],
-        addDocs = [];
-
-    try {
-      reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
-      addDocs = addDoc ? JSON.parse(addDoc) : [];
-    } catch (error) {
-      console.error("Invalid JSON format in reqDoc or addDoc:", error);
-      return { status: 400, body: { message: "Invalid JSON format" } };
-    }
+    console.log("reqDoc:", reqDocs);
+    console.log("addDoc:", addDocs);
 
     const fileUrls = {};
+
     const processDocs = async (docs) => {
       for (const doc of docs) {
         for (const section of doc.sections) {
           for (const content of section.content) {
-            if (content.type === "upload" && content.upload) {
-              for (const upload of content.upload) {
-                const file = files.find((file) =>
-                  upload.includes(file.originalname)
+            if (content.type === "upload" && Array.isArray(content.value)) {
+              const fileIds = content.value;
+              try {
+                // Fetch media documents by their IDs
+                const mediaDocs = await Media.find({ _id: { $in: fileIds } });
+                const mediaDocMap = new Map(
+                  mediaDocs.map((mediaDoc) => [
+                    mediaDoc._id.toString(),
+                    mediaDoc.url,
+                  ])
                 );
 
-                if (file) {
-                  try {
-                    const url = await uploadFilesToCloudinary([file]);
-                    if (url.length > 0) {
-                      fileUrls[upload] = url[0];
-                      console.log(fileUrls);
-                      console.log(`Mapped URL: ${upload} -> ${url[0]}`);
-                    }
-                  } catch (error) {
-                    console.error("Error uploading file to Cloudinary:", error);
-                    throw new Error("File upload failed");
-                  }
-                } else {
-                  console.log(`File not found for upload: ${upload}`);
-                }
+                // Replace IDs in content.value with URLs
+                content.value = content.value.map(
+                  (id) => mediaDocMap.get(id) || id
+                );
+
+                // Store URLs in fileUrls for later use
+                mediaDocs.forEach((mediaDoc) => {
+                  fileUrls[mediaDoc._id.toString()] = mediaDoc.url;
+                  console.log(`Mapped URL: ${mediaDoc._id} -> ${mediaDoc.url}`);
+                });
+              } catch (error) {
+                console.error("Error fetching media documents:", error);
+                throw new Error("Failed to fetch media documents");
               }
             }
           }
@@ -291,12 +161,11 @@ export async function handleData(reqDoc, addDoc, files) {
           });
 
           const savedDocument = await newDocument.save();
-          const id=savedDocument._id
+          const id = savedDocument._id;
           if (docs === reqDocs) {
-           
-            savedReqDocIds.push( id );
+            savedReqDocIds.push(id);
           } else {
-            savedAddDocIds.push(id );
+            savedAddDocIds.push(id);
           }
         } catch (error) {
           console.error("Error generating or uploading PDF:", error);
@@ -313,7 +182,8 @@ export async function handleData(reqDoc, addDoc, files) {
     return {
       status: 200,
       body: {
-        message: "PDFs created, uploaded, and saved to the database successfully",
+        message:
+          "PDFs created, uploaded, and saved to the database successfully",
         reqDocIds: savedReqDocIds,
         addDocIds: savedAddDocIds,
       },
@@ -323,7 +193,6 @@ export async function handleData(reqDoc, addDoc, files) {
     return { status: 500, body: { message: "Internal server error" } };
   }
 }
-
 
 export default {
   getAllDocuments,

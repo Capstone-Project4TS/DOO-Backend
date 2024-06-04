@@ -23,20 +23,17 @@ function getCurrentQuarter() {
 }
 
 export async function createWorkflow(req, res) {
+  // const documentData = JSON.parse(req.body.documentData);
+  console.log("Received request body:", req.body); // Log the entire request body
+
   const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
-  const files = req.files;
+  
   if (!reqDoc || reqDoc.length === 0) {
-    return req.status(400).json({ message: "No data provided" });
+    console.log("No reqDoc provided");
+    return res.status(400).json({ message: "No data provided" });
   }
-  let reqDocs = [];
-  let addDocs = [];
-  try {
-    reqDocs = reqDoc ? JSON.parse(reqDoc) : [];
-    addDocs = addDoc ? JSON.parse(addDoc) : [];
-  } catch (error) {
-    console.error("Invalid JSON format in reqDoc or addDoc:", error);
-    return res.status(400).json({ message: "Invalid JSON format" });
-  }
+
+
   try {
     const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId)
       .populate({
@@ -59,7 +56,7 @@ export async function createWorkflow(req, res) {
       let assignedUser;
       if (stage.hasCondition) {
         // Evaluate condition and select appropriate user(s)
-        assignedUser = await assignUserWithCondition(stage, reqDocs);
+        assignedUser = await assignUserWithCondition(stage, reqDoc);
       } else {
         // Select user with least workload for the role
         assignedUser = await assignUserWithoutCondition(stage);
@@ -69,17 +66,22 @@ export async function createWorkflow(req, res) {
 
     // Define the criteria for the hierarchy
     const repositoryId = workflowTemplate.depId;
-    console.log(repositoryId);
+    console.log("Dep Id",repositoryId);
     const categoryName = workflowTemplate.categoryId.name;
     const subCategoryName = workflowTemplate.subCategoryId.name;
 
     const year = new Date().getFullYear();
+    console.log("year", year)
     const quarter = getCurrentQuarter();
+    console.log("Quarter", quarter)
     const month = new Date().getMonth() + 1;
+    console.log("month", month)
     const monthName = new Date(year, month - 1).toLocaleString("default", {
       month: "long",
     });
 
+
+    console.log("month name", monthName)
     // Check if a workflow with the same name already exists for the current month
     const existingWorkflow = await Workflow.findOne({
       name: workflowName,
@@ -105,8 +107,8 @@ export async function createWorkflow(req, res) {
     }
 
     // Generate PDF from document data
-    const generatedDocuments = await handleData(reqDoc, addDoc, files);
-    console.log(generatedDocuments);
+    const generatedDocuments = await handleData(reqDoc, addDoc);
+    console.log("Generated Documents",generatedDocuments);
 
     if (generatedDocuments.status !== 200) {
       return res
@@ -208,6 +210,7 @@ export async function createWorkflow(req, res) {
       parentFolder: monthFolder._id,
       name: workflowTemplate.name,
     });
+   
     if (!workflowFolder) {
       console.log("Workflow folder is undefined. Initializing...");
       workflowFolder = new Folder({
@@ -215,13 +218,23 @@ export async function createWorkflow(req, res) {
         parentFolder: monthFolder._id,
       });
       workflowFolder = await workflowFolder.save();
+      console.log("Workflow Folder", workflowFolder)
+      monthFolder.folders.push(workflowFolder._id);
+        await monthFolder.save();
+     
+    }  else {
+     
+      console.log("Workflow folder already exists...");
+      console.log(" Workflow Folder ",workflowFolder)
+    }
 
-      const index = workflowFolder.workflows.findIndex((workflow) => {
-        console.log("Workflow:", workflow);
-        console.log("Saved Workflow ID:", savedWorkflow._id);
-        console.log("Saved Workflow ID type:", typeof savedWorkflow._id);
-        return workflow._id.toString() === savedWorkflow._id.toString();
-      });
+    const index = workflowFolder.workflows.findIndex((workflow) => {
+      console.log("Workflow:", workflow.workflowId);
+      console.log("Saved Workflow ID:", savedWorkflow._id);
+      console.log("Saved Workflow ID type:", typeof savedWorkflow._id);
+      return workflow.workflowId.toString() === savedWorkflow._id.toString();
+    });
+    console.log("index",index)
 
       if (index === -1) {
         console.log("Workflow not found in folder. Adding...");
@@ -233,15 +246,11 @@ export async function createWorkflow(req, res) {
           ],
         });
         await workflowFolder.save();
-        monthFolder.folders.push(workflowFolder._id);
-        await monthFolder.save();
+        
       } else {
         console.log("Workflow already exists in folder. Skipping...");
       }
-    } else {
-      console.log(monthFolder);
-      console.log("Workflow folder already exists...");
-    }
+  
 
     return res
       .status(201)
