@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import mongoose from 'mongoose';
 import connect from "./config/conn.js";
 import router from "./routes/route.js";
+import notificationRoutes from "./routes/notification.routes.js"
 import documentRoutes from "./routes/document.routes.js";
 import documentTemplateRoutes from "./routes/documentTemplate.route.js";
 import documentCategoryRoutes from "./routes/documentCategory.routes.js";
@@ -98,7 +99,7 @@ app.use(
   roleRoutes
 );
 app.use("/folder", folderRoutes);
-app.use("/initiate", userWorkflow, workflowRoutes);
+app.use("/initiate", userWorkflow, workflowRoutes, notificationRoutes);
  
 // Socket.io connection handling
 io.on("connection", (socket) => {

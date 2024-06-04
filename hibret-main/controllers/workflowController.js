@@ -3,6 +3,7 @@ import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import User from "../models/users.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
+import Document from "../models/document.model.js";
 import Folder from "../models/folder.model.js";
 import { sendNotification } from "./notification.js";
 import { io } from '../server.js';
@@ -973,6 +974,7 @@ export const getWorkflowDetails = async (req, res) => {
     const currentStage = workflow.assignedUsers.find(
       (stage) => stage.stageIndex === currentStageIndex
     );
+
     if (currentStage) {
       const id = currentStage.user || currentStage.committee;
       if (id) {
@@ -1005,6 +1007,7 @@ export const getWorkflowDetails = async (req, res) => {
     const responseData = {
       workflow: {
         _id: workflow._id,
+        name: workflow.name,
         status: workflow.status,
         currentStageIndex: workflow.currentStageIndex,
         requiredDocuments: workflow.requiredDocuments.map((doc) => ({
