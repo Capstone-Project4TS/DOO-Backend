@@ -32,7 +32,7 @@ app.disable("x-powered-by");
 initPassportJS();
 initCORS(app);
 
-
+app.locals.OTP = {};
 // Middleware to initialize session
 app.use(
   session({
