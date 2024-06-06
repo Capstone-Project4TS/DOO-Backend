@@ -15,9 +15,9 @@ const documentTemplateSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "SubCategory",
   },
-  repositoryId: {
+  depId: {
     type: Schema.Types.ObjectId,
-    ref: "Repository",
+    ref: "Department",
   },
   sections: [
     {

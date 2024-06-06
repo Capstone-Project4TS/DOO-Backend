@@ -8,7 +8,9 @@ import {
   updateDocumentCategory,
   deleteDocumentCategory,
   getCategoriesByRepositoryId,
-  getCatForDep
+  getCatForDep,
+  searchDocumentCategoriesByName,
+  filterDocumentCategories,
   
 } from "../controllers/documentCategoryController.js";
 
@@ -18,13 +20,17 @@ router.post("/category", createDocumentCategory);
 // // Route for retrieving all document types
 router.get("/category", getAllDocumentCategory);
 
+// Define the filter endpoint
+router.get('/document-categories/filter', filterDocumentCategories);
 
+// Define the search by name endpoint
+router.get('/document-categories/search', searchDocumentCategoriesByName);
 
 // // Route for retrieving a specific document type by ID
 router.get("/category/:id", getDocumentCategoryById);
 
 // // Route for retrieving a specific document type by ID
-router.get("/repo/category/:repositoryId", getCategoriesByRepositoryId);
+router.get("/repo/category/:depId", getCategoriesByRepositoryId);
 
 // // Route for updating a document type by ID
 router.put("/category/:id", updateDocumentCategory);

@@ -1,27 +1,17 @@
 import { Router } from "express";
-import multer from "multer";
-import upload from "../config/multerConfig.js";
-import documentController, {
-  handleData,
-} from "../controllers/documentController.js";
+import documentController from "../controllers/documentController.js";
 
 const router = Router();
 const {
-  getAllDocuments,
-  getDocumentById,
-  getDocumentsByFilter,
   deleteDocumentById,
+  getDocumentDetail
 } = documentController;
 
-//GET
-router.get("/", getAllDocuments);
-router.get("/filter", getDocumentsByFilter);
-router.get("/:id", getDocumentById);
 
-//POST
-router.post("/create", upload.array("files"), handleData);
+//Get
+router.get("/detail/:id", getDocumentDetail);
 
 //DELETE
-router.delete("/:id", deleteDocumentById);
+router.delete("/delete/:id", deleteDocumentById);
 
 export default router;

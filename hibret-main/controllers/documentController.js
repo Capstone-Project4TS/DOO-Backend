@@ -1,75 +1,45 @@
 import Document from "../models/document.model.js";
 import fs from "fs";
-import {
-  generatePDF,
-  uploadFilesToCloudinary,
-  uploadPDFToCloudinary,
-} from "../services/fileService.js";
+import { generatePDF, uploadPDFToCloudinary } from "../services/fileService.js";
 import Media from "../models/media.model.js";
+import mongoose from "mongoose";
 
-// Controller function to get all documents
-const getAllDocuments = async (req, res) => {
-  try {
-    // Query all documents from the database
-    const documents = await Document.find();
+const getDocumentDetail= async(req,res)=>{
+  
+  const {id}  = req.params;
 
-    // Respond with the retrieved documents
-    return res.status(200).json({ documents });
-  } catch (error) {
-    console.error("Error retrieving documents:", error);
-    return res.status(500).json({ error: "Internal server error" });
+  // Validate the provided ID
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid document ID' });
   }
-};
 
-// Controller function to get a document by ID
-const getDocumentById = async (req, res) => {
   try {
-    const { id } = req.params;
+    // Find the document by ID
+    const document = await Document.findById(id).populate('templateId', 'title');
 
-    // Query the database for the document with the specified ID
-    const document = await Document.findById(id);
-
-    // Check if the document exists
     if (!document) {
-      return res.status(404).json({ error: "Document not found" });
+      return res.status(404).json({ message: 'Document not found' });
     }
 
-    // Respond with the retrieved document
-    return res.status(200).json({ document });
+    // Sanitize the document to include necessary details only
+    const documentDetail = {
+      id: document._id,
+      templateId: document.templateId._id,
+      title: document.title,
+      sections: document.sections,
+      filePath: document.filePath,
+      createdAt: document.createdAt,
+      updatedAt: document.updatedAt,
+    };
+
+    // Return the document details
+    return res.status(200).json({ document: documentDetail });
   } catch (error) {
-    console.error("Error retrieving document:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching document:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
-};
+}
 
-// Controller function to get documents based on filters
-
-const getDocumentsByFilter = async (req, res) => {
-  try {
-    // Extract filter parameters from the query string
-    const { title, createdAt } = req.query;
-
-    // Build the filter object based on the provided parameters
-    const filter = {};
-
-    if (title) {
-      filter.title = title;
-    }
-
-    if (createdAt) {
-      filter.createdAt = new Date(createdAt); // Ensure the date is properly formatted
-    }
-
-    // Query the database with the filter object
-    const documents = await Document.find(filter);
-
-    // Respond with the retrieved documents
-    return res.status(200).json({ documents });
-  } catch (error) {
-    console.error("Error retrieving documents by filter:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-};
 
 // Controller function to delete a document by ID
 const deleteDocumentById = async (req, res) => {
@@ -107,7 +77,6 @@ export async function handleData(reqDocs, addDocs) {
             if (content.type === "upload" && Array.isArray(content.value)) {
               const fileIds = content.value;
               try {
-                // Fetch media documents by their IDs
                 const mediaDocs = await Media.find({ _id: { $in: fileIds } });
                 const mediaDocMap = new Map(
                   mediaDocs.map((mediaDoc) => [
@@ -116,12 +85,10 @@ export async function handleData(reqDocs, addDocs) {
                   ])
                 );
 
-                // Replace IDs in content.value with URLs
                 content.value = content.value.map(
                   (id) => mediaDocMap.get(id) || id
                 );
 
-                // Store URLs in fileUrls for later use
                 mediaDocs.forEach((mediaDoc) => {
                   fileUrls[mediaDoc._id.toString()] = mediaDoc.url;
                   console.log(`Mapped URL: ${mediaDoc._id} -> ${mediaDoc.url}`);
@@ -195,8 +162,7 @@ export async function handleData(reqDocs, addDocs) {
 }
 
 export default {
-  getAllDocuments,
-  getDocumentById,
-  getDocumentsByFilter,
+
   deleteDocumentById,
+  getDocumentDetail
 };
