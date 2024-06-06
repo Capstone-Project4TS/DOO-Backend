@@ -11,6 +11,7 @@ import folderRoutes from "./routes/folder.routes.js";
 import roleRoutes from "./routes/role.routes.js";
 import userWorkflow from "./routes/userWorkflow.routes.js";
 import workflowRoutes from "./routes/workflow.routes.js";
+import reportRoutes from "./routes/report.route.js"
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import session from "express-session";
@@ -84,7 +85,8 @@ app.use(
   documentCategoryRoutes,
   subCategoryRoutes,
   documentTemplateRoutes,
-  roleRoutes
+  roleRoutes,
+  reportRoutes
 );
 app.use("/folder", folderRoutes);
 app.use("/initiate", userWorkflow, workflowRoutes);
