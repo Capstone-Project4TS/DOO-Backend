@@ -317,6 +317,7 @@ export async function getWorkflowById(req, res) {
 
       return {
         ...doc.toObject(),
+        title: doc.title,
         sections: processSections(doc.sections),
       };
     };
