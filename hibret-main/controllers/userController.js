@@ -1,29 +1,32 @@
 import UserModel from "../models/users.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import Workflow from "../models/workflow.model.js";
-import { selectSingleUser } from "./workflowController.js";
+import { selectSingleUser } from "../services/workflowService.js";
 import bcrypt from "bcrypt";
 import mongoose from "mongoose";
 import * as EmailService from "../services/emailService.js";
 import * as UserService from "../services/userService.js";
 import otpGenerator from "otp-generator";
-import {
-  validateEmail,
-  validateRegisterInput,
-} from "../validations/user.validation.js";
-import { MongoClient } from "mongodb";
+import RoleModel from '../models/role.model.js';
 
-const uri = "mongodb+srv://root:root@cluster0.nchnoj6.mongodb.net/HR";
-const dbName = "HR";
-const collectionName = "users";
+const OTP_EXPIRATION_TIME = 5 * 60 * 1000; // OTP expiration time in milliseconds (e.g., 5 minutes)
+
+// Admin role ID for comparison
+const ADMIN_ROLE_ID = new mongoose.Types.ObjectId("66374bd0fdfae8633a05d11e");
+
 
 // POST: http://localhost:5000/api/admin/user/create
 export async function createAccounts(req, res) {
-  const users = await getUser();
-
   try {
+    const users = await UserService.getUser();
+
+    if (users.error) {
+      // Handle the error from getUser
+      return res.status(500).json({ message: users.error });
+    }
+
     if (!Array.isArray(users) || users.length === 0) {
-      return { message: "Please provide users data." };
+      return res.status(400).json({ message: "Please provide users data." });
     }
 
     const createdUsers = [];
@@ -31,172 +34,178 @@ export async function createAccounts(req, res) {
     const deletedUsers = [];
 
     for (const user of users) {
-      const existingUser = await UserModel.findOne({ email: user.email });
+      try {
+        const existingUser = await UserModel.findOne({ email: user.email });
 
-      if (existingUser) {
-        // User exists, check for changes
-        if (existingUser.role_id.toString() !== user.role_id.toString()) {
-          // Update user information
-          await UserModel.updateOne(
-            { email: user.email },
-            { $set: { role_id: new mongoose.Types.ObjectId(user.role_id) } }
-          );
-          updatedUsers.push(user.email);
+        if (existingUser) {
+          // User exists, check for changes
+          if (existingUser.role_id.toString() !== user.role_id.toString()) {
+            // Update user information
+            await UserModel.updateOne(
+              { email: user.email },
+              { $set: { role_id: new mongoose.Types.ObjectId(user.role_id) } }
+            );
+            updatedUsers.push(user.email);
+          }
+        } else {
+          // User doesn't exist, create new user
+          const result = await UserService.createUser(user);
+          if (!result.error) {
+            createdUsers.push(user.email);
+          } else {
+            console.error(`Error creating user: ${user.email}`, result.error);
+          }
         }
-      } else {
-        // User doesn't exist, create new user
-        const result = await createUser(user);
-        if (!result.error) {
-          createdUsers.push(user.email);
-        }
+      } catch (error) {
+        console.error(`Error processing user: ${user.email}`, error);
       }
     }
 
-    // Find users in our DB but not in HR DB and delete them
-    const allHRUsers = users.map((user) => user.email);
-    const usersToDelete = await UserModel.find({ email: { $nin: allHRUsers } });
-    for (const userToDelete of usersToDelete) {
-      const { _id, role_id } = userToDelete; // Get _id and role_id of user to be deleted
+    // Deletion logic
+    try {
+      const allHRUsers = users.map((user) => user.email);
+      const usersToDelete = await UserModel.find({
+        email: { $nin: allHRUsers },
+      });
+      for (const userToDelete of usersToDelete) {
+        try {
+          const { _id, role_id } = userToDelete;
 
-      // Get workflows assigned to user
-      const userWorkflows = await UserWorkflow.findOne({ _id });
-      if (userWorkflows) {
-        for (const workflow of userWorkflows.workflows) {
-          // Reassign workflow to user with least workload
-          const newUserId = await selectSingleUser(role_id);
+          const userWorkflows = await UserWorkflow.findOne({ _id });
+          if (userWorkflows) {
+            for (const workflow of userWorkflows.workflows) {
+              const newUserId = await selectSingleUser(role_id);
 
-          // Add workflow to new user's UserWorkflow
-          await UserWorkflow.findOneAndUpdate(
-            { userId: newUserId },
-            {
-              $push: {
-                workflows: {
-                  workflowId: workflow.workflowId,
-                  isActive: workflow.isActive,
+              await UserWorkflow.findOneAndUpdate(
+                { userId: newUserId },
+                {
+                  $push: {
+                    workflows: {
+                      workflowId: workflow.workflowId,
+                      isActive: workflow.isActive,
+                    },
+                  },
                 },
-              },
-            },
-            { upsert: true }
-          );
+                { upsert: true }
+              );
 
-          // Replace userToDelete's userId with newUserId in assignedUsers of workflow
-          await Workflow.updateOne(
-            { _id: workflow.workflowId, "assignedUsers.user": _id },
-            { $set: { "assignedUsers.$.user": newUserId } }
-          );
+              await Workflow.updateOne(
+                { _id: workflow.workflowId, "assignedUsers.user": _id },
+                { $set: { "assignedUsers.$.user": newUserId } }
+              );
+            }
+          }
+
+          await UserModel.deleteOne({ email: userToDelete.email });
+          deletedUsers.push(userToDelete.email);
+        } catch (error) {
+          console.error(`Error deleting user: ${userToDelete.email}`, error);
         }
       }
-
-      // Delete user from UserModel
-      await UserModel.deleteOne({ email: userToDelete.email });
-      deletedUsers.push(userToDelete.email);
+    } catch (error) {
+      console.error("Error deleting users:", error);
     }
 
-    return { message: "Users synchronization completed successfully" };
+    return {
+      message: "Users synchronization completed successfully",
+      createdUsers,
+      updatedUsers,
+      deletedUsers,
+    };
   } catch (error) {
     console.error("Error synchronizing users:", error);
     return { message: "Internal server error" };
   }
 }
 
-export async function createUser(user) {
-  // const { error } = validateRegisterInput(user);
-  // if (error) return { error: error.details[0].message };
-
-  try {
-    async function hashPassword(password) {
-      const salt = await bcrypt.genSalt(10); // Generate a random salt
-      const hashedPassword = await bcrypt.hash(password, salt);
-      return hashedPassword;
-    }
-    const defaultPassword = await generateDefaultPassword();
-    const hashedPassword = await hashPassword(defaultPassword);
-
-    // Create a new user object with verification token
-    const newUser = new UserModel({
-      otp: defaultPassword,
-      password: hashedPassword, // Consider hashing the password before saving it
-      email: user.email,
-      role_id: new mongoose.Types.ObjectId(user.role_id),
-      username: user.username,
-    });
-
-    // Save the user to the database
-    await newUser.save();
-
-    // Return the newly created user
-    return newUser;
-  } catch (error) {
-    console.error("Error creating user:", error);
-    return { error: "Internal server error" };
-  }
-}
-
-export async function getUser(req, res) {
-  const client = new MongoClient(uri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
-
-  try {
-    await client.connect();
-
-    const database = client.db(dbName);
-    const collection = database.collection(collectionName);
-
-    const users = await collection.find({}).toArray();
-
-    if (!users || users.length === 0)
-      return res.status(404).send({ error: "No users found" });
-
-    // Extract relevant user data (username, email, and role)
-    const sanitizedUsers = users.map((user) => {
-      const { username, email, role_id } = user; // Extract only desired fields
-      return { username, email, role_id };
-    });
-
-    return sanitizedUsers; // Send user data to the client
-  } catch (error) {
-    console.error("Error occurred while fetching user information:", error);
-    return { error: "Internal Server Error" };
-  } finally {
-    // Close the connection
-    await client.close();
-  }
-}
-
+// Endpoint to get all users in the database
 export async function getAllUsers(req, res) {
   try {
-    const users = await UserModel.find({});
-    if (!users || users.length === 0) {
-      return res.status(404).json({ message: "No users found" });
-    }
-    return res.status(200).json({ users });
+     // Fetch all users
+     const users = await UserModel.find({}).populate('role_id', 'roleName');
+    console.log(users)
+     if (!users || users.length === 0) {
+       return res.status(404).json({ message: "No users found" });
+     }
+ 
+
+     let sanitizedUsers = users.map(user => ({
+       userId: user._id,
+       username: user.username,
+       email: user.email,
+       role_id: user.role_id._id,
+       roleName: user.role_id.roleName,
+       status: user.status,
+       activationStatus:user.activationStatus,
+       accountCreationStatus:user.accountCreationStatus,
+     }));
+ 
+     sanitizedUsers = sanitizedUsers.filter(user => !user.role_id.equals(ADMIN_ROLE_ID));
+    return res.status(200).json({ users: sanitizedUsers });
   } catch (error) {
     console.error("Error fetching users:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
 
+
 /** POST: http://localhost:5000/api/generateOTP */
+let OTP_STATE = {};
+
 export async function generateOTP(req, res) {
+  console.log('generateOTP function called');
+
   const { email } = req.body;
   const user = await UserModel.findOne({ email });
-  req.app.locals.OTP = otpGenerator.generate(6, {
+
+  if (!user) {
+    console.log('User not found');
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  console.log('Current OTP state:', OTP_STATE);
+
+  // Check if an OTP has been generated recently
+  if (OTP_STATE.code && OTP_STATE.timestamp) {
+    const currentTime = Date.now();
+    const timeSinceLastOTP = currentTime - OTP_STATE.timestamp;
+
+    console.log(`Current time: ${currentTime}`);
+    console.log(`Last OTP timestamp: ${OTP_STATE.timestamp}`);
+    console.log(`Time since last OTP: ${timeSinceLastOTP}ms`);
+
+    if (timeSinceLastOTP < OTP_EXPIRATION_TIME) {
+      const timeRemaining = Math.ceil((OTP_EXPIRATION_TIME - timeSinceLastOTP) / 1000);
+      console.log(`Please wait ${timeRemaining} seconds before requesting a new OTP`);
+      return res.status(429).json({ message: `Please wait ${timeRemaining} seconds before requesting a new OTP` });
+    }
+  }
+
+  const otp = otpGenerator.generate(6, {
     lowerCaseAlphabets: false,
     upperCaseAlphabets: false,
     specialChars: false,
   });
 
+  // Store the OTP and the timestamp
+  OTP_STATE = { code: otp, timestamp: Date.now() };
+
+  console.log(`Generated OTP: ${otp}`);
+  console.log(`OTP timestamp: ${OTP_STATE.timestamp}`);
+
+  // Send the OTP to the user (e.g., via email)
   const sendingOtp = await EmailService.sendPasswordResetCode(
     user.email,
     user.username,
-    req.app.locals.OTP
+    OTP_STATE.code
   );
+
   await EmailService.sendEmail(sendingOtp);
 
   res.status(201).send({ msg: "A reset password code is sent to your email!" });
 }
+
+
 
 /** GET: http://localhost:5000/api/verifyOTP */
 export async function verifyOTP(req, res) {
@@ -228,7 +237,6 @@ export async function resetPassword(req, res) {
     const { password } = req.body;
 
     const user = await UserModel.findOne({ _id: id.userId });
-    console.log(user)
     if (!user) {
       return res.status(404).send({ error: "Username not Found" });
     }
@@ -251,6 +259,7 @@ export async function resetPassword(req, res) {
   }
 }
 
+// Endpoint for change password
 export async function changePassword(req, res) {
   const { oldPassword, newPassword } = req.body;
   const id = req.user;
@@ -302,7 +311,7 @@ export async function sendInvitations(req, res) {
           .json({ success: false, message: "Invalid selected roles." });
       }
       // Get users based on selected roles
-      users = await getUsersByRoles(selectedRoles);
+      users = await UserService.getUsersByRoles(selectedRoles);
     } else if (req.body.selectedUsers) {
       // Individual user selection
       const selectedUsers = req.body.selectedUsers;
@@ -316,19 +325,23 @@ export async function sendInvitations(req, res) {
           .json({ success: false, message: "Invalid selected users." });
       }
       // Get users based on usernames or emails
-      users = await getUsersByUsernameOrEmail(selectedUsers);
+      users = await UserService.getUsersByUsernameOrEmail(selectedUsers);
     } else {
       // Invalid request
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "Invalid request. Please provide selectedRoles or selectedUsers.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid request. Please provide selectedRoles or selectedUsers.",
+      });
     }
-    const result = await sendInvitation(users);
-    return res.status(200).json(result);
+
+
+    const result = await UserService.sendInvitation(users);
+    if(result.success==true){
+      return res.status(200).json(result);
+    }else{
+    return res.status(400).json(result);
+    }
   } catch (error) {
     console.error(error);
     return res
@@ -337,52 +350,7 @@ export async function sendInvitations(req, res) {
   }
 }
 
-export async function sendInvitation(users) {
-  try {
-    for (const user of users) {
-      const email = await EmailService.sendInvitation(
-        user.email,
-        user.username,
-        user.otp
-      );
-      await EmailService.sendEmail(email);
-
-      // Update account creation status to "Sent" after sending the invitation
-      await UserService.updateAccountCreationStatus(user._id);
-    }
-
-    return { success: true, message: "Invitations sent successfully." };
-  } catch (error) {
-    console.error(error);
-    return { success: false, message: "Failed to send invitations." };
-  }
-}
-
-export async function getUsersByRoles(selectedRoles) {
-  try {
-    // Query the database to find users based on selected roles
-    const users = await UserModel.find({ role_id: { $in: selectedRoles } });
-    return users;
-  } catch (error) {
-    throw error;
-  }
-}
-
-export async function getUsersByUsernameOrEmail(selectedUsers) {
-  try {
-    // Query the database to find users based on usernames or emails
-    const users = await UserModel.find({
-      $or: [
-        { username: { $in: selectedUsers } },
-        { email: { $in: selectedUsers } },
-      ],
-    });
-    return users;
-  } catch (error) {
-    throw error;
-  }
-}
-
+// resend otp invitaion by email
 export async function resendInvitationEmail(req, res) {
   try {
     const identifier = req.body.identifier; // Username or email of the user requesting the resend
@@ -394,57 +362,36 @@ export async function resendInvitationEmail(req, res) {
     }
 
     // Find the user based on the identifier
-    const user = await findUserByIdentifier(identifier);
+    const user = await UserService.findUserByIdentifier(identifier);
     if (!user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found." });
     }
-
+    const defaultPassword = await UserService.generateDefaultPassword();
+    const hashedPassword = await UserService.hashPassword(defaultPassword);
     const email = await EmailService.sendInvitation(
       user.email,
       user.username,
-      user.otp
+      defaultPassword
     );
-    await EmailService.sendEmail(email);
 
+    await EmailService.sendEmail(email);
+    user.password = hashedPassword;
+    await user.save();
     // Update account creation status to "Sent" after sending the invitation
     await UserService.updateAccountCreationStatus(user._id);
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Invitation email resent successfully.",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Invitation email resent successfully.",
+    });
   } catch (error) {
     console.error(error);
     return res
       .status(500)
       .json({ success: false, message: "Internal server error." });
   }
-}
-
-async function findUserByIdentifier(identifier) {
-  try {
-    // Query the database to find the user based on username or email
-    const user = await UserModel.findOne({
-      $or: [{ username: identifier }, { email: identifier }],
-    });
-    return user;
-  } catch (error) {
-    throw error;
-  }
-}
-
-// Function to generate a default password
-async function generateDefaultPassword() {
-  const pass = otpGenerator.generate(6, {
-    lowerCaseAlphabets: false,
-    upperCaseAlphabets: false,
-    specialChars: false,
-  });
-  return pass;
 }
 
 // Deactivate user account
@@ -505,38 +452,109 @@ export async function activateAccount(req, res) {
   }
 }
 
-// filter users
-export async function filterUsersByRoleAndStatus(
-  role,
-  status,
-  accountCreationStatus,
-  activationStatus
-) {
+// filter users by their roles and status  
+export async function filterUsersByRoleAndStatus(req, res) {
+  const { roleName, status, accountCreationStatus, activationStatus } = req.body;
+
   try {
     // Construct base query
     let query = {};
 
     // Add role filter if provided
-    if (role) {
-      query.role = role;
+    if (roleName) {
+      const roles = await RoleModel.find({ roleName: { $regex: new RegExp(roleName, 'i') } });
+      const roleIds = roles.map(role => role._id);
+      if (roleIds.length > 0) {
+        query.role_id = { $in: roleIds };
+      }
     }
 
     // Add status type filter if provided
     if (status) {
-      query.status = status;
+      if (Array.isArray(status) && status.length > 0) {
+        query.status = { $in: status };
+      } else if (typeof status === 'string') {
+        query.status = status;
+      }
     }
 
+    // Add account creation status filter if provided
     if (accountCreationStatus) {
-      query.accountCreationStatus = accountCreationStatus;
+      if (Array.isArray(accountCreationStatus) && accountCreationStatus.length > 0) {
+        query.accountCreationStatus = { $in: accountCreationStatus };
+      } else if (typeof accountCreationStatus === 'string') {
+        query.accountCreationStatus = accountCreationStatus;
+      }
     }
+    
+    // Add activation status filter if provided
     if (activationStatus) {
-      query.activationStatus = activationStatus;
+      if (Array.isArray(activationStatus) && activationStatus.length > 0) {
+        query.activationStatus = { $in: activationStatus };
+      } else if (typeof activationStatus === 'string') {
+        query.activationStatus = activationStatus;
+      }
     }
+
     // Execute the query
-    const users = await UserModel.find(query);
-    return users;
+    const users = await UserModel.find(query).populate('role_id', 'roleName');
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No users found matching the criteria" });
+    }
+
+    // Sanitize users data to return roleName instead of role_id
+    const sanitizedUsers = users.map(user => ({
+      userId: user._id,
+      username: user.username,
+      email: user.email,
+      role_id: user.role_id._id,
+      roleName: user.role_id.roleName,
+      status: user.status,
+    }));
+
+    return res.status(200).json({ users: sanitizedUsers });
   } catch (error) {
     console.error("Error filtering users:", error);
-    throw error;
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function searchUsers(req, res) {
+  const { username, email } = req.query;
+
+  try {
+    // Construct query object
+    let query = {};
+
+    // Add filters to the query object if provided
+    if (username) {
+      query.username = { $regex: new RegExp(username, 'i') }; // Case-insensitive search
+    }
+    if (email) {
+      query.email = { $regex: new RegExp(email, 'i') }; // Case-insensitive search
+    }
+   
+    // Execute the query
+    const users = await UserModel.find(query).populate('role_id', 'roleName');
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No users found matching the criteria" });
+    }
+
+    // Sanitize users data to return roleName instead of role_id
+    const sanitizedUsers = users.map(user => ({
+      userId: user._id,
+      username: user.username,
+      email: user.email,
+      role_id: user.role_id._id,
+      roleName: user.role_id.roleName,
+      status: user.status,
+    }));
+
+    return res.status(200).json({ users: sanitizedUsers });
+  } catch (error) {
+    console.error("Error searching users:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 }
