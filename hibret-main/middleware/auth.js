@@ -56,7 +56,7 @@ export function authorize(roles) {
     const token = req.cookies.jwt;
 
     if (!token) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ message: "Unauthorized User" });
     }
 
     // Verify JWT token
