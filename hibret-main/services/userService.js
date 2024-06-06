@@ -1,40 +1,17 @@
 import UserModel from "../models/users.model.js";
 import dayjs from "dayjs";
+import { MongoClient } from "mongodb";
+import otpGenerator from "otp-generator";
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import * as EmailService from "../services/emailService.js";
+import * as UserService from "../services/userService.js";
 
-export const getUser = (user) => user.hidePassword();
 
-export const createUser = ({ username, email, password }) =>
-  new UserModel({ username, email, password });
+const uri = "mongodb+srv://root:root@cluster0.nchnoj6.mongodb.net/HR";
+const dbName = "HR";
+const collectionName = "users";
 
-export const setResetPasswordToken = (user, resetTokenValue, expiryDate) => {
-  user.passwordResetToken = resetTokenValue;
-  user.passwordResetExpires = expiryDate;
-};
-
-export const findUserBy = async (prop, value) =>
-  await UserModel.findOne({ [prop]: value });
-
-export const findUserById = async (id) => await UserModel.findById(id);
-
-export const saveUser = async (user) => await user.save();
-
-export const setUserPassword = async (user, password) => {
-  user.password = password;
-  user.passwordResetToken = "";
-  user.passwordResetExpires = dayjs().toDate();
-  return await user.hashPassword();
-};
-
-export const setUserVerified = async (user) => {
-  user.isVerified = true;
-  user.expires = undefined;
-};
-
-export const deleteUserById = async (user) =>
-  await UserModel.findByIdAndDelete(user._id);
-
-export const deleteUnverifiedUserByEmail = async (email) =>
-  await UserModel.findOneAndDelete({ email, isVerified: false });
 
 // Function to update user status based on login activity or update all users' statuses
 export const updateUserStatus = async (userId = null) => {
@@ -140,19 +117,139 @@ export const resetLoginAttempts = async (email) => {
   }
 };
 
-// export default {
-//   getUser,
-//   createUser,
-//   updateUserStatus,
-//   setResetPasswordToken,
-//   updateAccountCreationStatus,
-//   resetLoginAttempts,
-//   trackLoginAttempts,
-//   findUserBy,
-//   findUserById,
-//   saveUser,
-//   setUserPassword,
-//   setUserVerified,
-//   deleteUserById,
-//   deleteUnverifiedUserByEmail,
-// };
+export async function hashPassword(password) {
+  const salt = await bcrypt.genSalt(10); // Generate a random salt
+  const hashedPassword = await bcrypt.hash(password, salt);
+  return hashedPassword;
+}
+
+export async function getUsersByUsernameOrEmail(selectedUsers) {
+  try {
+    // Query the database to find users based on usernames or emails
+    const users = await UserModel.find({
+      $or: [
+        { username: { $in: selectedUsers } },
+        { email: { $in: selectedUsers } },
+      ],
+    });
+    return users;
+  } catch (error) {
+    throw error;
+  }
+}
+
+
+
+export async function getUser() {
+  const client = new MongoClient(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+
+  try {
+    await client.connect();
+
+    const database = client.db(dbName);
+    const collection = database.collection(collectionName);
+
+    const users = await collection.find({}).toArray();
+
+    if (!users || users.length === 0)
+      return { error: "No users found" };
+
+    const sanitizedUsers = users.map((user) => {
+      const { username, email, role_id } = user;
+      return { username, email, role_id };
+    });
+
+    return sanitizedUsers;
+  } catch (error) {
+    console.error("Error fetching user information:", error);
+    return { error: "Internal Server Error" , error};
+  } finally {
+    await client.close();
+  }
+}
+
+
+
+export async function createUser(user) {
+
+  try {
+    
+    const defaultPassword = await generateDefaultPassword();
+    const hashedPassword = await UserService.hashPassword(defaultPassword);
+
+    // Create a new user object with verification token
+    const newUser = new UserModel({
+      otp: defaultPassword,
+      password: hashedPassword, // Consider hashing the password before saving it
+      email: user.email,
+      role_id: new mongoose.Types.ObjectId(user.role_id),
+      username: user.username,
+    });
+
+    // Save the user to the database
+    await newUser.save();
+
+    // Return the newly created user
+    return newUser;
+  } catch (error) {
+    console.error("Error creating user:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function getUsersByRoles(selectedRoles) {
+  try {
+    // Query the database to find users based on selected roles
+    const users = await UserModel.find({ role_id: { $in: selectedRoles } });
+    return users;
+  } catch (error) {
+    throw error;  
+  }
+}
+
+export async function sendInvitation(users) {
+  try {
+    for (const user of users) {
+      const email = await EmailService.sendInvitation(
+        user.email,
+        user.username,
+        user.otp
+      );
+      await EmailService.sendEmail(email);
+
+      // Update account creation status to "Sent" after sending the invitation
+      await UserService.updateAccountCreationStatus(user._id);
+    }
+
+    return { success: true, message: "Invitations sent successfully." };
+  } catch (error) {
+    console.error(error);
+    return { success: false, message: "Failed to send invitations." };
+  }
+}
+
+export async function findUserByIdentifier(identifier) {
+  try {
+    // Query the database to find the user based on username or email
+    const user = await UserModel.findOne({
+      $or: [{ username: identifier }, { email: identifier }],
+    });
+    return user;
+  } catch (error) {
+    throw error;
+  }
+}
+
+
+// Function to generate a default password
+export  async function generateDefaultPassword() {
+  const pass = otpGenerator.generate(6, {
+    lowerCaseAlphabets: false,
+    upperCaseAlphabets: false,
+    specialChars: false,
+  });
+  return pass;
+}
