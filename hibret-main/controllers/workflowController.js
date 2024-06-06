@@ -277,7 +277,7 @@ export async function getWorkflowById(req, res) {
 
   try {
     const workflow = await Workflow.findById(id)
-      .select('-workflowTemplate -user -currentStageIndex -status -assignedUsers -comments')
+      .select('-workflowTemplate -user -currentStageIndex -status -assignedUsers')
       .populate({
         path: 'requiredDocuments',
       })
@@ -312,7 +312,7 @@ export async function getWorkflowById(req, res) {
       return {
         ...doc.toObject(),
         sections: processSections(doc.sections),
-        filePath: null
+        filePath: null,
       };
     };
 
@@ -330,6 +330,7 @@ export async function getWorkflowById(req, res) {
       ...workflow.toObject(),
       requiredDocuments: processedRequiredDocuments,
       additionalDocuments: processedAdditionalDocuments,
+     
     };
 
     return res.status(200).json(result);
