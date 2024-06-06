@@ -9,10 +9,23 @@ const collectionName = "Role";
 
 export async function updateAllRoles(req, res) {
   try {
-    const Roles = await getRoles();
-    await updateRoles(Roles);
-    await deleteRoles(Roles);
-    return { message: "Roles synchronization completed successfully" };
+    const roles = await getRoles();
+    
+    
+    if(roles.error){
+      return { message: "Error occurred while fetching role information." };
+    }
+    if (!Array.isArray(roles) || roles.length === 0) {
+      return { message: "Please provide roles data." };
+    }
+    const updateResults = await updateRoles(roles);
+    const deleteResults = await deleteRoles(roles);
+
+    return {
+      message: "Roles synchronization completed successfully",
+      updateResults,
+      deleteResults,
+    };
   } catch (error) {
     console.error("Error fetching roles:", error);
     return { error: "Internal server error" };
@@ -23,6 +36,7 @@ export async function getAllRoles(req, res) {
   try {
     const roles = await RoleModel.find({});
     if (!roles || roles.length === 0) {
+      console.warn("No roles found.");
       return res.status(404).json({ message: "No roles found" });
     }
     res.status(200).json(roles);
@@ -32,16 +46,22 @@ export async function getAllRoles(req, res) {
   }
 }
 
+
 // Function to handle the API request and response for fetching departments
 export async function getAllDeps(req, res) {
   try {
     const deps = await getDeps();
+    if (!deps || deps.length === 0) {
+      console.warn("No departments found.");
+      return res.status(404).json({ message: "No departments found" });
+    }
     return res.status(200).json(deps);
   } catch (error) {
     console.error("Error fetching departments:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
 
 async function updateRoles(roles) {
   try {
@@ -50,16 +70,17 @@ async function updateRoles(roles) {
 
       if (existingRole) {
         // Role exists, check if any updates needed
+        const updates = {};
         if (existingRole.roleName !== hrRole.roleName) {
-          // Update the role ID if it has changed
-          await RoleModel.findByIdAndUpdate(existingRole._id, {
-            roleName: hrRole.roleName,
-          });
+          updates.roleName = hrRole.roleName;
         }
-        if (existingRole.depId !== hrRole.depId) {
-          await RoleModel.findByIdAndUpdate(existingRole._id, {
-            depId: hrRole.depId,
-          });
+        if (existingRole.depId.toString() !== hrRole.depId.toString()) {
+          updates.depId = hrRole.depId;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await RoleModel.findByIdAndUpdate(existingRole._id, { $set: updates });
+          console.log(`Updated role ${existingRole._id}`);
         }
       } else {
         // Role doesn't exist, create it
@@ -69,6 +90,7 @@ async function updateRoles(roles) {
           depId: hrRole.depId,
         });
         await newRole.save();
+        console.log(`Created new role ${hrRole._id}`);
       }
     }
   } catch (error) {
@@ -77,18 +99,18 @@ async function updateRoles(roles) {
   }
 }
 
+
 // Delete Roles
 async function deleteRoles(hrRoles) {
   try {
     const existingRoles = await RoleModel.find({});
     for (const existingRole of existingRoles) {
       // Check if the role exists in HR roles
-      const found = hrRoles.find((hrRole) =>
-        hrRole._id.equals(existingRole._id)
-      );
+      const found = hrRoles.find((hrRole) => hrRole._id.equals(existingRole._id));
       if (!found) {
         // Role doesn't exist in HR roles, delete it
         await RoleModel.findByIdAndDelete(existingRole._id);
+        console.log(`Deleted role ${existingRole._id}`);
       }
     }
   } catch (error) {
@@ -96,6 +118,7 @@ async function deleteRoles(hrRoles) {
     throw new Error("Error deleting roles");
   }
 }
+
 
 export async function getRoles(req, res) {
   const client = new MongoClient(uri, {
@@ -111,30 +134,31 @@ export async function getRoles(req, res) {
 
     const roles = await collection.find({}).toArray();
 
-    if (!roles || roles.length === 0)
-      return res.status(404).send({ error: "No roles found" });
+    if (!roles || roles.length === 0) {
+      return res.status(404).json({ error: "No roles found" });
+    }
 
-    // Extract relevant user data (username, email, and role)
     const sanitizedRoles = roles.map((role) => {
-      const { _id, roleName, depId } = role; // Extract only desired fields
+      const { _id, roleName, depId } = role;
       return { _id, roleName, depId };
     });
 
-    return sanitizedRoles; // Send role data to the client
+    return sanitizedRoles;
   } catch (error) {
     console.error("Error occurred while fetching role information:", error);
     return { error: "Internal Server Error" };
   } finally {
-    // Close the connection
     await client.close();
   }
 }
 
-export async function getDeps() {
+
+export async function getDeps(req, res) {
   const client = new MongoClient(uri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
+
   try {
     await client.connect();
 
@@ -143,22 +167,20 @@ export async function getDeps() {
 
     const deps = await collection.find({}).toArray();
 
-    if (!deps || deps.length === 0) return { error: "No deps found" };
-
     const sanitizedDeps = deps.map((dep) => {
-      const { _id, name } = dep; // Extract only desired fields
+      const { _id, name } = dep;
       return { _id, name };
     });
 
-    return sanitizedDeps; // Send dep data to the client
+    return sanitizedDeps;
   } catch (error) {
-    console.error("Error occurred while fetching role information:", error);
+    console.error("Error occurred while fetching department information:", error);
     return { error: "Internal Server Error" };
   } finally {
-    // Close the connection
     await client.close();
   }
 }
+
 
 export async function getRoleById(req, res) {
   const roleId = req.params.id;
@@ -170,29 +192,32 @@ export async function getRoleById(req, res) {
       return res.status(404).json({ error: "Role not found" });
     }
 
-    res.status(200).json(role);
+    return res.status(200).json(role);
   } catch (error) {
     console.error("Error fetching role by ID:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
+
 
 export async function getAllRolesByDepId(req, res) {
   const depId = req.params.id;
 
   try {
-    const role = await RoleModel.find({ depId: depId });
+    const roles = await RoleModel.find({ depId: depId });
 
-    if (role.length === 0) {
+    if (!roles || roles.length === 0) {
       return res.status(404).json({ error: "Roles not found" });
     }
 
-    return res.status(200).json(role);
+    return res.status(200).json(roles);
   } catch (error) {
-    console.error("Error fetching role by ID:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error fetching roles by department ID:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+
 
 // Controller function to create a committee
 export async function createCommittee(req, res) {
