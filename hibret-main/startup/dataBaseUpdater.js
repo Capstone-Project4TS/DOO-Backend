@@ -9,16 +9,57 @@ const schedules = [
 ];
 
 export default function startCronJob() {
-  cron.schedule("*/60 * * * *", async () => {
-    console.log("Running user status update...");
-    try {
-      await updateUserStatus(); // Update statuses for all users
-      await createAccounts();
-      await updateAllRoles();
+  // Iterate over each schedule
+  schedules.forEach((schedule) => {
+    cron.schedule(schedule, async () => {
+      console.log(`Running scheduled task at ${schedule}`);
+      try {
+        try {
+          await updateUserStatus();
+          console.log("User status updated successfully.");
+        } catch (error) {
+          console.error("Failed to update user status:", error.message);
+        }
+        try {
+          const result = await createAccounts();
 
-      console.log("User status update complete.");
-    } catch (error) {
-      console.error("Error updating user statuses:", error);
-    }
+          if (result && result.message) {
+            console.log(result.message);
+            if (result.createdUsers) {
+              console.log("Created users:", result.createdUsers);
+            }
+            if (result.updatedUsers) {
+              console.log("Updated users:", result.updatedUsers);
+            }
+            if (result.deletedUsers) {
+              console.log("Deleted users:", result.deletedUsers);
+            }
+          } else {
+            console.log("Unexpected result:", result);
+          }
+        } catch (error) {
+          console.error(
+            "Error during createAccounts execution:",
+            error.message || error
+          );
+        }
+        try {
+          const result = await updateAllRoles();
+          if (result.error && result.error.length > 0) {
+            console.error(
+              "Errors occurred during role synchronization:",
+              result.error
+            );
+          } else {
+            console.log("Role synchronization completed successfully.");
+          }
+        } catch (error) {
+          console.error("Unexpected error occurred:", error);
+        }
+        console.log("Scheduled task complete.");
+      } catch (error) {
+        console.error("Error running scheduled task:", error);
+      }
+    });
   });
 }
