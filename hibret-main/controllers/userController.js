@@ -205,16 +205,19 @@ export async function generateOTP(req, res) {
   res.status(201).send({ msg: "A reset password code is sent to your email!" });
 }
 
-
-
-/** GET: http://localhost:5000/api/verifyOTP */
+/** POST: http://localhost:5000/api/verifyOTP */
 export async function verifyOTP(req, res) {
   const { code } = req.body;
-  if (parseInt(req.app.locals.OTP) === parseInt(code)) {
-    req.app.locals.OTP = null; // reset the OTP value
-    req.app.locals.resetSession = true; // start session for reset password
-    return res.status(201).send({ msg: "Verify Successsfully!" });
+
+  // Ensure OTP_STATE exists and is an object with code and timestamp
+  if (OTP_STATE && OTP_STATE.code) {
+    if (parseInt(OTP_STATE.code) === parseInt(code)) {
+      OTP_STATE = {}; // reset the OTP_STATE
+      req.app.locals.resetSession = true; // start session for reset password
+      return res.status(201).send({ msg: "Verified Successfully!" });
+    }
   }
+  
   return res.status(400).send({ error: "Invalid OTP" });
 }
 
