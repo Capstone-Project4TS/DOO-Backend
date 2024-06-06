@@ -104,7 +104,7 @@ export async function login(req, res) {
     return res.status(200).send({ msg, data: req.session.data });
   } catch (error) {
     console.error("Error occurred during login:", error);
-    return res.status(500).send({ error: "Internal server error." });
+    return res.status(500).send({ error: "Internal server error. Please try again later." });
   }
 }
 
@@ -121,6 +121,6 @@ export async function Logout(req, res) {
     }
   } catch (error) {
     console.error("Error occurred during logout:", error);
-    res.status(500).send({ error: "Internal server error." });
+    res.status(500).send({ error: "Internal server error. Please try again later." });
   }
 }
