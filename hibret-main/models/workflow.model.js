@@ -1,12 +1,12 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model } from "mongoose";
 
-  
-  const WorkflowSchema = new Schema({
+const WorkflowSchema = new Schema(
+  {
     name: {
-        type: String,
-        // required: true
+      type: String,
+      // required: true
     },
-  
+
     workflowTemplate: {
       type: Schema.Types.ObjectId,
       ref: "WorkflowTemplate",

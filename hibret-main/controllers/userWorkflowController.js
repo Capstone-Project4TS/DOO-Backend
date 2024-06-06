@@ -5,19 +5,20 @@ import Workflow from "../models/workflow.model.js";
 export async function createUserWorkflow(req, res) {
   const { userId, workflowId } = req.body;
   try {
-    // Check if the user exists
+    if (!userId || !workflowId) {
+      throw new Error("Both userId and workflowId are required");
+    }
+
     const user = await User.findById(userId);
     if (!user) {
       throw new Error("User not found");
     }
 
-    // Check if the workflow exists
     const workflow = await Workflow.findById(workflowId);
     if (!workflow) {
       throw new Error("Workflow not found");
     }
 
-    // Create a new entry in UserWorkflow collection
     const userWorkflow = new UserWorkflow({
       userId,
       workflows: [{ workflowId, isActive: true }],
@@ -26,14 +27,13 @@ export async function createUserWorkflow(req, res) {
     await userWorkflow.save();
     return res.status(201).json(userWorkflow);
   } catch (error) {
-    throw new Error(`Error assigning workflow to user: ${error.message}`);
+    console.error(`Error assigning workflow to user: ${error.message}`);
+    return res.status(400).json({ message: error.message });
   }
 }
 
-// Function to deactivate a workflow for a user
 export async function deactivateWorkflowForUser(userId, workflowId) {
   try {
-    // Update isActive to false for the specified workflowId
     await UserWorkflow.findOneAndUpdate(
       { userId, "workflows.workflowId": workflowId },
       { $set: { "workflows.$.isActive": false } }
@@ -44,10 +44,8 @@ export async function deactivateWorkflowForUser(userId, workflowId) {
   }
 }
 
-// Function to activate a workflow for a user
 export async function activateWorkflowForUser(userId, workflowId) {
   try {
-    // Update isActive to true for the specified workflowId
     await UserWorkflow.findOneAndUpdate(
       { userId, "workflows.workflowId": workflowId },
       { $set: { "workflows.$.isActive": true } }
@@ -61,44 +59,47 @@ export async function activateWorkflowForUser(userId, workflowId) {
 export async function getUserWorkflows(req, res) {
   try {
     const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
     const userWorkflows = await UserWorkflow.find({ userId }).populate({
       path: "workflows.workflowId",
       select: "name currentStageIndex status createdAt",
     });
 
-    // Check if the user has any workflows
     if (!userWorkflows || userWorkflows.length === 0) {
-      return res.status(404).json({ message: "This user doesn't have any workflows" });
+      return res
+        .status(404)
+        .json({ message: "This user doesn't have any workflows" });
     }
 
-    // Extract and format the workflows' details
-    const workflows = userWorkflows.flatMap(userWorkflow =>
+    const workflows = userWorkflows.flatMap((userWorkflow) =>
       userWorkflow.workflows
-        .filter(workflow => workflow.workflowId) // Ensure workflowId is not undefined
-        .map(workflow => ({
+        .filter((workflow) => workflow.workflowId)
+        .map((workflow) => ({
           workflowId: workflow.workflowId._id,
-          name: workflow.workflowId.name || 'Unnamed Workflow',
+          name: workflow.workflowId.name || "Unnamed Workflow",
           currentStageIndex: workflow.workflowId.currentStageIndex,
           status: workflow.workflowId.status,
           createdAt: workflow.workflowId.createdAt,
         }))
     );
 
-    // Check if all workflow IDs are undefined
     if (!workflows || workflows.length === 0) {
-      return res.status(404).json({ message: "All workflows are removed or deleted" });
+      return res
+        .status(404)
+        .json({ message: "All workflows are removed or deleted" });
     }
 
     return res.json(workflows);
   } catch (error) {
-    console.error('Error fetching user workflows:', error);
+    console.error("Error fetching user workflows:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
 
-
-
-export async function updateUserWorkflowStatus(res, req) {
+export async function updateUserWorkflowStatus(req, res) {
   try {
     const { userId, workflowId } = req.params;
     const { isActive } = req.body;
@@ -106,10 +107,11 @@ export async function updateUserWorkflowStatus(res, req) {
       { userId, "workflows.workflowId": workflowId },
       { "workflows.$.isActive": isActive }
     );
-    res
+    return res
       .status(200)
       .json({ message: "User workflow status updated successfully" });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Error updating user workflow status:", error);
+    return res.status(400).json({ message: error.message });
   }
 }

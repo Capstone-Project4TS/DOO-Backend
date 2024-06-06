@@ -7,7 +7,6 @@ import {
   getAllWorkflows,
   deleteWorkflow,
   updateWorkflow,
-  getWorkflowsById,
   moveStageForward,
   moveStageBackward,
   approveWorkflow,
@@ -16,20 +15,28 @@ import {
   getWorkflowDetails,
   getAllWorkflowsOfOwner,
   getAllRequiredDocuments,
+  filterWorkflows,
+  getWorkflowById,
+  searchWorkflowsByName
 } from "../controllers/workflowController.js";
 
 // Route to create a new workflow instance
 router.post("/workflows", createWorkflow);
+
+// Upload Documents endpoint
 router.post("/upload",upload.single("file"),uploadDoc);
+
 // Route to fetch all workflow instances
 router.get("/workflows", getAllWorkflows);
+
+// Route to fetch  workflow instances by id
+router.get("/workflows/get/:id", getWorkflowById);
+
+//Get all required documents in the workflow
 router.get("/reqDoc/workflows/:id", getAllRequiredDocuments);
 
 // Route to get all the workflows of an owner
 router.get("/workflows/owner/:userId", getAllWorkflowsOfOwner);
-
-// Route to fetch all workflow instances
-router.get("/workflows/:id", getWorkflowsById);
 
 // Route to update an existing workflow
 router.put("/workflows/:id", updateWorkflow);
@@ -39,6 +46,12 @@ router.put("/workflows/:id", updateWorkflow);
 
 // Route to delete a workflow
 router.delete("/workflows/:id", deleteWorkflow);
+
+// Define the search by name endpoint
+router.get('/workflows/search', searchWorkflowsByName);
+
+// Define the filter endpoint
+router.get('/workflows/filter', filterWorkflows);
 
 // Route to switch stages, approve and reject
 router.post("/workflows/forward", moveStageForward);

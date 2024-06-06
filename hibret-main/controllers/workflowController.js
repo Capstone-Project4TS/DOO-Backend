@@ -1,35 +1,23 @@
 import Workflow from "../models/workflow.model.js";
 import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import User from "../models/users.model.js";
+import Document from "../models/document.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
 import Folder from "../models/folder.model.js";
-import mongoose from "mongoose";
-const { ObjectId } = mongoose.Types;
-
-// Utility function to flatten nested arrays
-const flattenArray = (arr) =>
-  arr.reduce(
-    (acc, val) => acc.concat(Array.isArray(val) ? flattenArray(val) : val),
-    []
-  );
-
-function getCurrentQuarter() {
-  const month = new Date().getMonth() + 1; // getMonth() returns 0-11
-  return Math.floor((month - 1) / 3) + 1;
-}
+import * as WorkflowService from "../services/workflowService.js";
+import createFolderHierarchy from "../services/folderService.js";
 
 export async function createWorkflow(req, res) {
   // const documentData = JSON.parse(req.body.documentData);
   console.log("Received request body:", req.body); // Log the entire request body
 
   const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
-  
+
   if (!reqDoc || reqDoc.length === 0) {
     console.log("No reqDoc provided");
     return res.status(400).json({ message: "No data provided" });
   }
-
 
   try {
     const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId)
@@ -53,32 +41,34 @@ export async function createWorkflow(req, res) {
       let assignedUser;
       if (stage.hasCondition) {
         // Evaluate condition and select appropriate user(s)
-        assignedUser = await assignUserWithCondition(stage, reqDoc);
+        assignedUser = await WorkflowService.assignUserWithCondition(
+          stage,
+          reqDoc
+        );
       } else {
         // Select user with least workload for the role
-        assignedUser = await assignUserWithoutCondition(stage);
+        assignedUser = await WorkflowService.assignUserWithoutCondition(stage);
       }
       assignedUsers.push({ user: assignedUser, stageIndex: index });
     }
 
     // Define the criteria for the hierarchy
     const repositoryId = workflowTemplate.depId;
-    console.log("Dep Id",repositoryId);
+    console.log("Dep Id", repositoryId);
     const categoryName = workflowTemplate.categoryId.name;
     const subCategoryName = workflowTemplate.subCategoryId.name;
 
     const year = new Date().getFullYear();
-    console.log("year", year)
-    const quarter = getCurrentQuarter();
-    console.log("Quarter", quarter)
+    console.log("year", year);
+    const quarter = WorkflowService.getCurrentQuarter();
+    console.log("Quarter", quarter);
     const month = new Date().getMonth() + 1;
-    console.log("month", month)
+    console.log("month", month);
     const monthName = new Date(year, month - 1).toLocaleString("default", {
       month: "long",
     });
 
-
-    console.log("month name", monthName)
+    console.log("month name", monthName);
     // Check if a workflow with the same name already exists for the current month
     const existingWorkflow = await Workflow.findOne({
       name: workflowName,
@@ -105,7 +95,7 @@ export async function createWorkflow(req, res) {
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
-    console.log("Generated Documents",generatedDocuments);
+    console.log("Generated Documents", generatedDocuments);
 
     if (generatedDocuments.status !== 200) {
       return res
@@ -194,7 +184,7 @@ export async function createWorkflow(req, res) {
       parentFolder: monthFolder._id,
       name: workflowTemplate.name,
     });
-   
+
     if (!workflowFolder) {
       console.log("Workflow folder is undefined. Initializing...");
       workflowFolder = new Folder({
@@ -202,14 +192,12 @@ export async function createWorkflow(req, res) {
         parentFolder: monthFolder._id,
       });
       workflowFolder = await workflowFolder.save();
-      console.log("Workflow Folder", workflowFolder)
+      console.log("Workflow Folder", workflowFolder);
       monthFolder.folders.push(workflowFolder._id);
-        await monthFolder.save();
-     
-    }  else {
-     
+      await monthFolder.save();
+    } else {
       console.log("Workflow folder already exists...");
-      console.log(" Workflow Folder ",workflowFolder)
+      console.log(" Workflow Folder ", workflowFolder);
     }
 
     const index = workflowFolder.workflows.findIndex((workflow) => {
@@ -218,23 +206,21 @@ export async function createWorkflow(req, res) {
       console.log("Saved Workflow ID type:", typeof savedWorkflow._id);
       return workflow.workflowId.toString() === savedWorkflow._id.toString();
     });
-    console.log("index",index)
+    console.log("index", index);
 
-      if (index === -1) {
-        console.log("Workflow not found in folder. Adding...");
-        workflowFolder.workflows.push({
-          workflowId: savedWorkflow._id,
-          documents: [
-            ...savedWorkflow.requiredDocuments,
-            ...savedWorkflow.additionalDocuments,
-          ],
-        });
-        await workflowFolder.save();
-        
-      } else {
-        console.log("Workflow already exists in folder. Skipping...");
-      }
-  
+    if (index === -1) {
+      console.log("Workflow not found in folder. Adding...");
+      workflowFolder.workflows.push({
+        workflowId: savedWorkflow._id,
+        documents: [
+          ...savedWorkflow.requiredDocuments,
+          ...savedWorkflow.additionalDocuments,
+        ],
+      });
+      await workflowFolder.save();
+    } else {
+      console.log("Workflow already exists in folder. Skipping...");
+    }
 
     return res
       .status(201)
@@ -245,178 +231,13 @@ export async function createWorkflow(req, res) {
   }
 }
 
-// Helper function to assign user to a stage with condition
-async function assignUserWithCondition(stage, documentData) {
-  // Extract the condition field and its value from the stage
-  console.log(documentData);
-  const conditionFieldName = stage.condition;
-  console.log(conditionFieldName);
-  const conditionValue = extractConditionValue(
-    conditionFieldName,
-    documentData
-  );
-  console.log(conditionValue);
-
-  // Initialize an array to store potential users for approval
-  let potentialApprovers = [];
-
-  // Check if the stage has condition variants
-  if (stage.conditionVariants && stage.conditionVariants.length > 0) {
-    // Iterate over each condition variant
-    for (const variant of stage.conditionVariants) {
-      // Evaluate the condition variant
-      const conditionMatched = evaluateCondition(variant, conditionValue);
-      console.log(conditionMatched);
-      // If the condition variant is matched
-      if (conditionMatched) {
-        // Select approver(s) based on the condition variant
-        if (variant.approverType === "Single Person") {
-          console.log("SingleWithCondition");
-          console.log(variant.single_permissions.role_id);
-          // Select single user based on role and workload
-          potentialApprovers = await selectSingleUser(
-            variant.single_permissions.role_id
-          );
-        } else if (variant.approverType === "Committee") {
-          console.log("ComitteeWithCondition");
-          // Select committee members based on roles and workload
-          // potentialApprovers = await selectCommitteeMembers(variant.committee_permissions.role_ids);
-          potentialApprovers = variant.committee_permissions.role_ids;
-        }
-        // Break the loop after finding the matched condition variant
-        break;
-      }
-    }
-  }
-
-  // Return the selected user(s)
-  return potentialApprovers;
-}
-
-// Function to extract condition value from document data
-function extractConditionValue(fieldName, documentData) {
-  console.log("documentData:", JSON.stringify(documentData, null, 2)); // Log the structure of documentData
-
-  // Iterate through documentData to find the field matching fieldName and return its value
-  for (const data of documentData) {
-    console.log("Processing data:", JSON.stringify(data, null, 2)); // Log the current data object
-
-    if (data.sections && Array.isArray(data.sections)) {
-      // Check if data.sections is defined and is an array
-      for (const section of data.sections) {
-        console.log("Processing section:", JSON.stringify(section, null, 2)); // Log the current section object
-
-        if (section.content && Array.isArray(section.content)) {
-          // Check if section.content is defined and is an array
-          // Find the content with the given fieldName
-          const content = section.content.find(
-            (field) => field.title === fieldName
-          );
-          if (content && content.value !== undefined) {
-            // If content is found, return its value
-            return content.value;
-          }
-        }
-      }
-    } else {
-      console.log(
-        "data.sections is not an array or is undefined for data:",
-        JSON.stringify(data, null, 2)
-      );
-    }
-  }
-  // If no matching field is found, return undefined or a default value
-  return undefined;
-}
-
-// Function to evaluate condition variant
-function evaluateCondition(variant, conditionValue) {
-  // Logic to evaluate condition based on condition value and variant value
-  // For example, you might compare the condition value with the variant value using the operator
-  switch (variant.operator) {
-    case ">":
-      return conditionValue > variant.value;
-    case "<":
-      return conditionValue < variant.value;
-    case ">=":
-      return conditionValue >= variant.value;
-    case "<=":
-      return conditionValue <= variant.value;
-    default:
-      return false;
-  }
-}
-
-// Function to select single user based on role and workload
-export async function selectSingleUser(role_id) {
-  try {
-    // Find users with the given role_id
-    const users = await User.find({ role_id });
-
-    // Array to store workload details of each user
-    const workloadDetails = [];
-
-    // Iterate through users
-    for (const user of users) {
-      // Find the user's entry in the UserWorkflow collection
-      const userWorkflow = await UserWorkflow.findOne({ userId: user._id });
-
-      // If userWorkflow is found, count the number of workflows
-      let workflowCount = 0;
-      if (userWorkflow) {
-        workflowCount = userWorkflow.workflows.length;
-      }
-
-      // Push workload details to array
-      workloadDetails.push({ userId: user._id, workflowCount });
-    }
-
-    // Sort users based on workload (ascending order)
-    workloadDetails.sort((a, b) => a.workflowCount - b.workflowCount);
-
-    // Return the user ID with the least workload
-    console.log("the user with least workload");
-    console.log(workloadDetails[0].userId);
-    return workloadDetails[0].userId;
-  } catch (error) {
-    console.error("Error finding user with least workload:", error);
-    throw error; // Throw error for handling at higher level
-  }
-}
-
-// Function to select committee members based on roles and workload
-async function selectCommitteeMembers(roleIds) {
-  // Query UserWorkflow collection to find committee members with least workload for the specified roles
-  // Logic to select committee members with least workload
-  // Return the selected committee members
-}
-
-// Helper function to assign user to a stage without condition
-async function assignUserWithoutCondition(stage) {
-  let potentialApprovers = [];
-  if (stage.approverType === "Single Person") {
-    console.log("signlewithoutcondition");
-    console.log(stage.single_permissions.role_id);
-    // Select single user based on role and workload
-    potentialApprovers = await selectSingleUser(
-      stage.single_permissions.role_id
-    );
-  } else if (stage.approverType === "Committee") {
-    console.log("committeeWithoutConditon");
-    // Select committee members based on roles and workload
-    // potentialApprovers = await selectCommitteeMembers(stage.committee_permissions.role_ids);
-    potentialApprovers = stage.committee_permissions.role_ids;
-  }
-  return potentialApprovers;
-}
-
 // Get all workflow templates
 export async function getAllRequiredDocuments(req, res) {
   try {
     const template = await Workflow.findById(req.params.id)
       .populate("requiredDocuments")
       .populate("additionalDocuments");
-    console.log("hello");
+
     if (!template) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
@@ -451,28 +272,78 @@ export const getAllWorkflows = async (req, res) => {
   }
 };
 
-// Controller function to fetch all workflow instances
-//error handeled
-export const getWorkflowsById = async (req, res) => {
+export async function getWorkflowById(req, res) {
   const { id } = req.params;
+
   try {
-    // Fetch  workflow instances from the database
-    const workflow = await Workflow.findById(id);
+    const workflow = await Workflow.findById(id)
+      .select('-workflowTemplate -user -currentStageIndex -status -assignedUsers -comments')
+      .populate({
+        path: 'requiredDocuments',
+      })
+      .populate({
+        path: 'additionalDocuments',
+      });
+
     if (!workflow) {
-      return res.status(404).json({ message: "No worklfow found." });
-    } else {
-      console.log(workflow);
-      return res.status(200).json(workflow);
+      return res.status(404).json({ message: "Workflow not found" });
     }
+
+    // Function to process document sections
+    const processSections = (sections) => {
+      return sections.map(section => ({
+        ...section.toObject(),
+        content: section.content.map(contentItem => {
+          if (contentItem.type === 'upload') {
+            return {
+              ...contentItem,
+              value: null
+            };
+          }
+          return contentItem;
+        })
+      }));
+    };
+
+    // Process each document to exclude value for upload types and set filePath to null
+    const processDocument = (doc) => {
+      if (!doc) return null;
+
+      return {
+        ...doc.toObject(),
+        sections: processSections(doc.sections),
+        filePath: null
+      };
+    };
+
+    // Process required documents
+    const processedRequiredDocuments = workflow.requiredDocuments.map(processDocument);
+    
+    // Process additional documents if they exist
+    let processedAdditionalDocuments = [];
+    if (workflow.additionalDocuments) {
+      processedAdditionalDocuments = workflow.additionalDocuments.map(processDocument);
+    }
+
+    // Construct the result with processed documents
+    const result = {
+      ...workflow.toObject(),
+      requiredDocuments: processedRequiredDocuments,
+      additionalDocuments: processedAdditionalDocuments,
+    };
+
+    return res.status(200).json(result);
   } catch (error) {
-    console.error("Error fetching workflows:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error retrieving workflow:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-};
+}
+
+
 
 export async function updateWorkflow(req, res) {
   const { id } = req.params;
-  const updates = req.body;
+  const { workflowName, reqDoc, addDoc } = req.body;
 
   try {
     // Check if the workflow exists
@@ -481,8 +352,31 @@ export async function updateWorkflow(req, res) {
       return res.status(404).json({ message: "Workflow not found" });
     }
 
-    // Update the existing workflow with the provided data
-    Object.assign(existingWorkflow, updates);
+    // Process document data if provided
+    if (reqDoc || addDoc) {
+      // Generate PDF from document data
+      const generatedDocuments = await handleData(reqDoc, addDoc);
+      if (generatedDocuments.status !== 200) {
+        return res
+          .status(generatedDocuments.status)
+          .json(generatedDocuments.body);
+      }
+
+      if (reqDoc) {
+        const requiredDocuments = generatedDocuments.body.reqDocIds;
+        existingWorkflow.requiredDocuments = requiredDocuments;
+      }
+
+      if (addDoc) {
+        const additionalDocuments = generatedDocuments.body.addDocIds;
+        existingWorkflow.additionalDocuments = additionalDocuments;
+      }
+    }
+
+    // Update the workflow name if provided
+    if (workflowName) {
+      existingWorkflow.name = workflowName;
+    }
 
     // Save the updated workflow
     const updatedWorkflow = await existingWorkflow.save();
@@ -493,6 +387,7 @@ export async function updateWorkflow(req, res) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
 
 export async function deleteWorkflow(req, res) {
   const { id } = req.params;
@@ -1032,8 +927,105 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
   }
 };
 
+//Search workflows by their name
+export const searchWorkflowsByName = async (req, res) => {
+  const { name } = req.query;
+
+  try {
+    if (!name) {
+      return res.status(400).json({ message: "Name parameter is required" });
+    }
+
+    // Search by name
+    const workflows = await Workflow.find({
+      name: { $regex: new RegExp(name, "i") },
+    });
+
+    if (workflows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No workflows found matching the name" });
+    }
+
+    return res.status(200).json({ workflows });
+  } catch (error) {
+    console.error("Error searching workflows by name:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Controller function to filter workflows
+export const filterWorkflows = async (req, res) => {
+  const { status, user, workflowTemplate } = req.query;
+
+  try {
+    // Construct query object
+    let query = {};
+
+    // Add status filter if provided
+    if (status) {
+      query.status = { $in: Array.isArray(status) ? status : [status] };
+    }
+
+    // Add user filter if provided
+    if (user) {
+      const userNames = Array.isArray(user) ? user : [user];
+      const matchingUsers = await User.find({
+        username: { $in: userNames.map((name) => new RegExp(name, "i")) },
+      }).select("_id");
+
+      if (matchingUsers.length > 0) {
+        query.user = { $in: matchingUsers.map((u) => u._id) };
+      } else {
+        return res
+          .status(404)
+          .json({ message: "No workflows found matching the user criteria" });
+      }
+    }
+
+    // Add workflowTemplate filter if provided
+    if (workflowTemplate) {
+      const templateNames = Array.isArray(workflowTemplate)
+        ? workflowTemplate
+        : [workflowTemplate];
+      const matchingTemplates = await WorkflowTemplate.find({
+        templateName: {
+          $in: templateNames.map((name) => new RegExp(name, "i")),
+        },
+      }).select("_id");
+
+      if (matchingTemplates.length > 0) {
+        query.workflowTemplate = {
+          $in: matchingTemplates.map((t) => t._id),
+        };
+      } else {
+        return res.status(404).json({
+          message: "No workflows found matching the workflow template criteria",
+        });
+      }
+    }
+
+    // Execute the query
+    const workflows = await Workflow.find(query);
+
+    if (workflows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No workflows found matching the criteria" });
+    }
+
+    return res.status(200).json({ workflows });
+  } catch (error) {
+    console.error("Error filtering workflows:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export default {
+  searchWorkflowsByName,
   createWorkflow,
+  filterWorkflows,
   getAllWorkflows,
+  getWorkflowById,
   getAllRequiredDocuments,
 };
