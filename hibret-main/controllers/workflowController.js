@@ -277,12 +277,18 @@ export async function getWorkflowById(req, res) {
 
   try {
     const workflow = await Workflow.findById(id)
-      .select('-workflowTemplate -user -currentStageIndex -status -assignedUsers')
+      .select("-user -currentStageIndex -status -assignedUsers ")
       .populate({
-        path: 'requiredDocuments',
+        path: "workflowTemplate",
+        select: "name stages.stageTitle",
       })
       .populate({
-        path: 'additionalDocuments',
+        path: "requiredDocuments",
+        select: "-filePath",
+      })
+      .populate({
+        path: "additionalDocuments",
+        select: "-filePath",
       });
 
     if (!workflow) {
@@ -291,17 +297,17 @@ export async function getWorkflowById(req, res) {
 
     // Function to process document sections
     const processSections = (sections) => {
-      return sections.map(section => ({
+      return sections.map((section) => ({
         ...section.toObject(),
-        content: section.content.map(contentItem => {
-          if (contentItem.type === 'upload') {
+        content: section.content.map((contentItem) => {
+          if (contentItem.type === "upload") {
             return {
               ...contentItem,
-              value: null
+              value: null,
             };
           }
           return contentItem;
-        })
+        }),
       }));
     };
 
@@ -312,25 +318,31 @@ export async function getWorkflowById(req, res) {
       return {
         ...doc.toObject(),
         sections: processSections(doc.sections),
-        filePath: null,
       };
     };
 
     // Process required documents
-    const processedRequiredDocuments = workflow.requiredDocuments.map(processDocument);
-    
+    const processedRequiredDocuments = workflow.requiredDocuments.map(
+      processDocument
+    );
+
     // Process additional documents if they exist
     let processedAdditionalDocuments = [];
     if (workflow.additionalDocuments) {
-      processedAdditionalDocuments = workflow.additionalDocuments.map(processDocument);
+      processedAdditionalDocuments = workflow.additionalDocuments.map(
+        processDocument
+      );
     }
 
-    // Construct the result with processed documents
+    // Construct the result with processed documents and workflowTemplate
     const result = {
       ...workflow.toObject(),
+      workflowTemplate: {
+        name: workflow.workflowTemplate.name,
+        stages: workflow.workflowTemplate.stages.map((stage) => stage.stageTitle),
+      },
       requiredDocuments: processedRequiredDocuments,
       additionalDocuments: processedAdditionalDocuments,
-     
     };
 
     return res.status(200).json(result);
@@ -339,7 +351,6 @@ export async function getWorkflowById(req, res) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
-
 
 
 export async function updateWorkflow(req, res) {
@@ -388,7 +399,6 @@ export async function updateWorkflow(req, res) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
-
 
 export async function deleteWorkflow(req, res) {
   const { id } = req.params;
