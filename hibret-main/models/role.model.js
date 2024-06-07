@@ -9,7 +9,7 @@ const roleSchema = new mongoose.Schema({
   roleName: {
     type: String,
     required: true,
-    unique: true, // Ensure unique role names
+    // unique: true, // Ensure unique role names
   },
   depId: {
     type: mongoose.Schema.Types.ObjectId,

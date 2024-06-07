@@ -6,6 +6,7 @@ import { updateAllRoles } from "../controllers/roleController.js";
 const schedules = [
   "0 0 * * *", // Runs at midnight
   "0 12 * * *", // Runs at noon
+  // "* * * * *", // Runs every minute
 ];
 
 export default function startCronJob() {
@@ -50,8 +51,12 @@ export default function startCronJob() {
               "Errors occurred during role synchronization:",
               result.error
             );
-          } else {
-            console.log("Role synchronization completed successfully.");
+          } else if(result.message) {
+
+            console.log(result.message);
+            console.log("Updated roles:", result.updateResults);
+            console.log("Deleted roles:", result.deleteResults);
+
           }
         } catch (error) {
           console.error("Unexpected error occurred:", error);

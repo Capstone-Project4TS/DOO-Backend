@@ -7,7 +7,7 @@ const uri = "mongodb+srv://root:root@cluster0.nchnoj6.mongodb.net/HR";
 const dbName = "HR";
 const collectionName = "Role";
 
-export async function updateAllRoles(req, res) {
+export async function updateAllRoles() {
   try {
     const roles = await getRoles();
     
@@ -65,6 +65,8 @@ export async function getAllDeps(req, res) {
 
 async function updateRoles(roles) {
   try {
+    const updateResults = [];
+
     for (const hrRole of roles) {
       const existingRole = await RoleModel.findOne({ _id: hrRole._id });
 
@@ -80,6 +82,7 @@ async function updateRoles(roles) {
 
         if (Object.keys(updates).length > 0) {
           await RoleModel.findByIdAndUpdate(existingRole._id, { $set: updates });
+          updateResults.push({ _id: existingRole._id, updates });
           console.log(`Updated role ${existingRole._id}`);
         }
       } else {
@@ -90,29 +93,35 @@ async function updateRoles(roles) {
           depId: hrRole.depId,
         });
         await newRole.save();
+        updateResults.push({ _id: hrRole._id, created: true });
         console.log(`Created new role ${hrRole._id}`);
       }
     }
+
+    return updateResults;
   } catch (error) {
     console.error("Error updating roles:", error);
     throw new Error("Error updating roles");
   }
 }
 
-
-// Delete Roles
 async function deleteRoles(hrRoles) {
   try {
+    const deleteResults = [];
     const existingRoles = await RoleModel.find({});
+
     for (const existingRole of existingRoles) {
       // Check if the role exists in HR roles
-      const found = hrRoles.find((hrRole) => hrRole._id.equals(existingRole._id));
+      const found = hrRoles.find((hrRole) => hrRole._id.toString() === existingRole._id.toString());
       if (!found) {
         // Role doesn't exist in HR roles, delete it
         await RoleModel.findByIdAndDelete(existingRole._id);
+        deleteResults.push({ _id: existingRole._id, deleted: true });
         console.log(`Deleted role ${existingRole._id}`);
       }
     }
+
+    return deleteResults;
   } catch (error) {
     console.error("Error deleting roles:", error);
     throw new Error("Error deleting roles");
@@ -120,7 +129,7 @@ async function deleteRoles(hrRoles) {
 }
 
 
-export async function getRoles(req, res) {
+export async function getRoles() {
   const client = new MongoClient(uri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -135,7 +144,7 @@ export async function getRoles(req, res) {
     const roles = await collection.find({}).toArray();
 
     if (!roles || roles.length === 0) {
-      return res.status(404).json({ error: "No roles found" });
+      return { error: "No roles found" };
     }
 
     const sanitizedRoles = roles.map((role) => {
