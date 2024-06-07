@@ -30,6 +30,10 @@ const WorkflowSchema = new Schema({
   assignedUsers: [
     {
       stageIndex: Number,
+      userType: {
+        type: String,
+        enum: ["User", "Committee"],
+      },
       user: {
         type: Schema.Types.ObjectId,
         ref: "User",
@@ -45,8 +49,14 @@ const WorkflowSchema = new Schema({
       stageIndex: Number,
       fromUser: { type: Schema.Types.ObjectId, ref: "User" },
       toUser: { type: Schema.Types.ObjectId, ref: "User" },
+      toCommittee: { type: Schema.Types.ObjectId, ref: "Committee" },
+      memberOf: { type: Schema.Types.ObjectId, ref: "Committee" },
       comment: String,
       createdAt: { type: Date, default: Date.now },
+      decision: {
+        type: String,
+        enum: ["Approved", "Revert", "Rejected", "Forward"]
+      },
       visibleTo: [{ type: Schema.Types.ObjectId, ref: "User" }],
     },
   ],
@@ -67,15 +77,17 @@ const WorkflowSchema = new Schema({
     {
       stageIndex: Number,
       committeId: {
-        type: Schema.Types.ObjectId, 
+        type: Schema.Types.ObjectId,
         ref: 'Committee'
       },
-      memberId: { 
-        type: Schema.Types.ObjectId, 
-        ref: 'User' },
-      decision: { 
-        type: String, 
-        enum: ['approve', 'reject', 'forward', 'backward'] },
+      memberId: {
+        type: Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      decision: {
+        type: String,
+        enum: ['approve', 'reject', 'forward', 'backward']
+      },
     },
   ],
 },
