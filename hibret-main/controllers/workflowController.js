@@ -903,13 +903,15 @@ export const getWorkflowDetails = async (req, res) => {
       assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
 
     // Check user permissions and determine button visibility
-    const isOwner = workflow.user._id.toString() === userId;
+    const isOwner = workflow.user.toString() === userId;
     const currentStageIndex = workflow.currentStageIndex;
     const canMoveForward =
-      isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
-    const canMoveBackward = isActiveUser && currentStageIndex > 0;
+      isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1 || true;
+    const canMoveBackward = isActiveUser && currentStageIndex > 0 || true;
     const canApprove =
-      isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1;
+      isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1 || true;
+    const isActive = isActiveUser;
+    const canEdit = isOwner && currentStageIndex == -1;
 
     // Determine comment visibility based on user role
     const comments = isOwner
