@@ -1,15 +1,21 @@
 
 import { Router } from "express";
 import reortController from "../controllers/reportAndAnalyticsController.js";
+import authMiddleware from '../middleware/auth.js'
 
 const router = Router();
 const {
-    getSystemActivityDashboard
+    getAdminDashboard,
+    getAdminReport,
+    getUserDashboard
 } = reortController;
 
 
 //Get
-router.get("/reports/system-activity", getSystemActivityDashboard);
+router.get("/admin/reports", getAdminReport);
+router.get("/admin/dashboard", getAdminDashboard);
+
+router.get("/user/dashboard", authMiddleware,getUserDashboard);
 
 
 export default router;

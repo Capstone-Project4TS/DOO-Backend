@@ -89,7 +89,7 @@ connect()
   });
 
 /** api routes */
-app.use("/api", router);
+app.use("/api", router,reportRoutes);
 app.use("/documents", documentRoutes);
 app.use(
   "/admin",
@@ -98,7 +98,7 @@ app.use(
   subCategoryRoutes,
   documentTemplateRoutes,
   roleRoutes,
-  reportRoutes
+  
 );
 app.use("/folder", folderRoutes);
 app.use("/initiate", userWorkflow, workflowRoutes, notificationRoutes);
