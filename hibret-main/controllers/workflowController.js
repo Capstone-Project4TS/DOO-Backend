@@ -4,7 +4,6 @@ import User from "../models/users.model.js";
 import Document from "../models/document.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
-import Document from "../models/document.model.js";
 import Committee from "../models/committee.model.js";
 import Folder from "../models/folder.model.js";
 import { sendNotification } from "./notification.js";
