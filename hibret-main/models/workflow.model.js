@@ -12,6 +12,10 @@ const WorkflowSchema = new Schema(
       ref: "WorkflowTemplate",
       required: true,
     },
+    templateVersion: {
+      type: Number,
+      required: true,
+    },
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
