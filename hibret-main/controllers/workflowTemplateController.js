@@ -2,6 +2,7 @@ import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import Workflow from '../models/workflow.model.js'; // Adjust the import as per your project structure
 import DocumentTemplate from "../models/documentTemplate.model.js";
 import mongoose from "mongoose";
+import { deepEqual } from "../services/workflowService.js";
 
 // Create new workflow template
 export const createWorkflowTemplate = async (req, res) => {
@@ -228,49 +229,64 @@ export async function getWorkflowTemplateDetailById(req, res) {
 }
 
 // Update a workflow template
-// export async function updateWorkflowTemplate(req, res) {
-//   try {
-//     const { id } = req.params;
-//     const { name, stages, requiredDocumentTemplates } = req.body;
+export async function updateWorkflowTemplate(req, res) {
+  try {
+    const { id } = req.params;
+    const { name, stages, requiredDocumentTemplates,additionalDoc } = req.body;
 
-//     // Find the existing workflow template by its ID
-//     const existingWorkflowTemplate = await WorkflowTemplate.findById(id);
+    // Find the existing workflow template by its ID
+    const existingWorkflowTemplate = await WorkflowTemplate.findById(id);
 
-//     if (!existingWorkflowTemplate) {
-//         return res.status(404).json({ error: 'Workflow template not found' });
-//     }
+    if (!existingWorkflowTemplate) {
+      return res.status(404).json({ error: 'Workflow template not found' });
+    }
 
-//     // Check if there are any changes in the parameters
-//     const isModified = (
-//       existingWorkflowTemplate.name !== name ||
-//       JSON.stringify(existingWorkflowTemplate.stages) !== JSON.stringify(stages) ||
-//       JSON.stringify(existingWorkflowTemplate.requiredDocumentTemplates) !== JSON.stringify(requiredDocumentTemplates)
-//   );
+    // Check if there are any changes in the parameters
+    const isModified = (
+      existingWorkflowTemplate.name !== name ||
+      !deepEqual(existingWorkflowTemplate.stages, stages) ||
+      !deepEqual(existingWorkflowTemplate.requiredDocumentTemplates, requiredDocumentTemplates)
+    );
 
-//   // If there are no changes, return without saving
-//   if (!isModified) {
-//       return ;
-//   }
-//     // Update the properties of the existing workflow template
-//     existingWorkflowTemplate.name = name;
-//     existingWorkflowTemplate.stages = stages;
-//     existingWorkflowTemplate.requiredDocumentTemplates = requiredDocumentTemplates;
+    // If there are no changes, return without saving
+    if (!isModified) {
+      return res.status(200).json({
+        message: 'No changes detected. Template not updated.',
+        template: existingWorkflowTemplate
+      });
+    }
 
-//     // Save the updated workflow template
-// await existingWorkflowTemplate.save();
+    // Create a new version of the workflow template
+    const newVersion = existingWorkflowTemplate.version + 1;
+    const newTemplate = new WorkflowTemplate({
+      name,
+      stages,
+      requiredDocumentTemplates,
+      version: newVersion,
+      categoryId: existingWorkflowTemplate.categoryId,
+      subCategoryId: existingWorkflowTemplate.subCategoryId,
+      depId: existingWorkflowTemplate.depId,
+      additionalDoc:additionalDoc
+    });
 
-//     res.status(200).json(existingWorkflowTemplate);
-// } catch (error) {
-//     console.error('Error updating workflow template:', error);
-//     res.status(500).json({ error: 'Internal server error' });
-// }
-// }
+    await newTemplate.save();
+
+    // Mark the old template as deprecated
+    existingWorkflowTemplate.isDeprecated = true;
+    await existingWorkflowTemplate.save();
+
+    res.status(200).json({
+      message: 'Workflow template updated successfully',
+      template: newTemplate
+    });
+  } catch (error) {
+    console.error('Error updating workflow template:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
 
 
-
-//Delete a Workflow Template
-
-
+ // Delete a Workflow Template
 export async function deleteWorkflowTemplate(req, res) {
   try {
     const { id } = req.params;
