@@ -1,29 +1,49 @@
 import DocumentTemplate from "../models/documentTemplate.model.js";
 import mongoose from "mongoose";
-import Document from '../models/document.model.js'; // Adjust the import as per your project structure
-import { deepEqual } from "../services/workflowService.js";
+import Document from "../models/document.model.js"; // Adjust the import as per your project structure
+// import { deepEqual } from "../services/workflowService.js";
+import deepEqual from 'deep-equal';
+import cloneDeep from 'lodash/cloneDeep.js';
+
+// import { boolean } from "joi";
+
 // Create a new document template
-// error handled 
+// error handled
 export async function createDocumentTemplate(req, res) {
   try {
     const { title, subCategoryId, categoryId, sections, depId } = req.body;
 
     // Input validation (required fields)
-    if (!title || !subCategoryId || !categoryId || !sections || !sections.length || !depId) {
+    if (
+      !title ||
+      !subCategoryId ||
+      !categoryId ||
+      !sections ||
+      !sections.length ||
+      !depId
+    ) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Validate IDs (assuming they are ObjectIds)
-    if (!mongoose.Types.ObjectId.isValid(subCategoryId) ||
-        !mongoose.Types.ObjectId.isValid(depId) ||
-        !mongoose.Types.ObjectId.isValid(categoryId)) {
-      return res.status(400).json({ error: "Invalid subcategory, category, or department ID" });
+    if (
+      !mongoose.Types.ObjectId.isValid(subCategoryId) ||
+      !mongoose.Types.ObjectId.isValid(depId) ||
+      !mongoose.Types.ObjectId.isValid(categoryId)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Invalid subcategory, category, or department ID" });
     }
 
     // Check if a document template with the same title already exists
     const existingTemplate = await DocumentTemplate.findOne({ title });
     if (existingTemplate) {
-      return res.status(400).json({ error: "A document template with the same title already exists" });
+      return res
+        .status(400)
+        .json({
+          error: "A document template with the same title already exists",
+        });
     }
 
     // Initialize an empty array to store eligible conditions
@@ -55,14 +75,22 @@ export async function createDocumentTemplate(req, res) {
     });
 
     await newTemplate.save();
-    return res.status(201).json({ message: "Document template created successfully", newTemplate });
+    return res
+      .status(201)
+      .json({ message: "Document template created successfully", newTemplate });
   } catch (err) {
     if (err.code === 11000) {
       // Duplicate key error
-      return res.status(400).json({ error: "A document template with the same title already exists" });
+      return res
+        .status(400)
+        .json({
+          error: "A document template with the same title already exists",
+        });
     }
     console.error("Error in createDocumentTemplate:", err);
-    return res.status(500).json({ error: "Failed to create document template" });
+    return res
+      .status(500)
+      .json({ error: "Failed to create document template" });
   }
 }
 // Get all document templates
@@ -110,16 +138,16 @@ export async function getDocumentTemplateById(req, res) {
 
     // Validate the provided ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid document template ID' });
+      return res.status(400).json({ message: "Invalid document template ID" });
     }
 
     // Find the document template by ID and populate references
     const template = await DocumentTemplate.findById(id)
-      .populate({ path: 'categoryId', select: 'name' })
-      .populate({ path: 'subCategoryId', select: 'name' });
+      .populate({ path: "categoryId", select: "name" })
+      .populate({ path: "subCategoryId", select: "name" });
 
     if (!template) {
-      return res.status(404).json({ message: 'Document template not found' });
+      return res.status(404).json({ message: "Document template not found" });
     }
 
     // Sanitize the document template to include necessary details only
@@ -128,9 +156,9 @@ export async function getDocumentTemplateById(req, res) {
       title: template.title,
       category: template.categoryId ? template.categoryId.name : null,
       subCategory: template.subCategoryId ? template.subCategoryId.name : null,
-      sections: template.sections.map(section => ({
+      sections: template.sections.map((section) => ({
         title: section.title,
-        content: section.content.map(content => ({
+        content: section.content.map((content) => ({
           title: content.title,
           type: content.type,
           options: content.options,
@@ -146,10 +174,30 @@ export async function getDocumentTemplateById(req, res) {
     // Return the document template details
     return res.status(200).json(documentTemplateDetail);
   } catch (error) {
-    console.error('Error retrieving document template by ID:', error);
-    return res.status(500).json({ error: 'Failed to retrieve document template' });
+    console.error("Error retrieving document template by ID:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to retrieve document template" });
   }
 }
+
+// Update a document template
+
+// Helper function to strip Mongoose metadata from sections
+const stripMongooseMeta = (obj) => {
+  if (Array.isArray(obj)) {
+    return obj.map(item => stripMongooseMeta(item));
+  } else if (obj !== null && typeof obj === 'object') {
+    const newObj = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key) && !key.startsWith('__') && key !== '$__' && key !== '$isNew') {
+        newObj[key] = stripMongooseMeta(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+};
 
 // Update a document template
 export async function updateDocumentTemplate(req, res) {
@@ -157,7 +205,7 @@ export async function updateDocumentTemplate(req, res) {
     const { sections } = req.body;
 
     // Input validation for required fields
-    if ( !sections) {
+    if (!sections) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -167,11 +215,19 @@ export async function updateDocumentTemplate(req, res) {
       return res.status(404).json({ message: "Document template not found" });
     }
 
+    // Clone the existing sections to avoid modifying the original document
+    const clonedExistingSections = cloneDeep(existingTemplate.sections);
+    const clonedNewSections = cloneDeep(sections);
+
+    // Strip Mongoose metadata from the cloned sections for comparison
+    const strippedExistingSections = stripMongooseMeta(clonedExistingSections);
+    const strippedNewSections = stripMongooseMeta(clonedNewSections);
+
+    console.log('Existing Sections:', JSON.stringify(strippedExistingSections, null, 2));
+    console.log('New Sections:', JSON.stringify(strippedNewSections, null, 2));
+
     // Check if the new structure is different from the current one
-    if (
-      
-      deepEqual(sections, existingTemplate.sections)
-    ) {
+    if (deepEqual(strippedNewSections, strippedExistingSections)) {
       // If the structure is the same, no need to create a new version
       return res.status(200).json({
         message: "No structural changes detected. Template not updated.",
@@ -206,7 +262,6 @@ export async function updateDocumentTemplate(req, res) {
   }
 }
 
-
 export async function deleteDocumentTemplate(req, res) {
   try {
     const { id } = req.params;
@@ -214,7 +269,12 @@ export async function deleteDocumentTemplate(req, res) {
     // Check if any documents are created using this template
     const documentsUsingTemplate = await Document.findOne({ templateId: id });
     if (documentsUsingTemplate) {
-      return res.status(403).json({ message: "Cannot delete document template. Documents are created using this template." });
+      return res
+        .status(403)
+        .json({
+          message:
+            "Cannot delete document template. Documents are created using this template.",
+        });
     }
 
     // Delete the document template if no documents are created using it
@@ -229,7 +289,6 @@ export async function deleteDocumentTemplate(req, res) {
     res.status(500).json({ error: "Failed to delete document template" });
   }
 }
-
 
 export async function getDocumentBySub(req, res) {
   try {
@@ -294,18 +353,30 @@ export const searchDocumentTemplatesByTitle = async (req, res) => {
     }
 
     // Search by title
-    const templates = await DocumentTemplate.find({ title: { $regex: new RegExp(title, 'i') } })
-      .populate({ path: 'subCategoryId', populate: { path: 'categoryId', select: 'name' }, select: 'name categoryId' });
+    const templates = await DocumentTemplate.find({
+      title: { $regex: new RegExp(title, "i") },
+    }).populate({
+      path: "subCategoryId",
+      populate: { path: "categoryId", select: "name" },
+      select: "name categoryId",
+    });
 
     if (templates.length === 0) {
-      return res.status(404).json({ message: "No document templates found matching the title" });
+      return res
+        .status(404)
+        .json({ message: "No document templates found matching the title" });
     }
 
     const simplifiedTemplates = templates.map((template) => ({
       _id: template._id,
       documentTitle: template.title,
-      subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
-      categoryName: template.subCategoryId && template.subCategoryId.categoryId ? template.subCategoryId.categoryId.name : null,
+      subCategoryName: template.subCategoryId
+        ? template.subCategoryId.name
+        : null,
+      categoryName:
+        template.subCategoryId && template.subCategoryId.categoryId
+          ? template.subCategoryId.categoryId.name
+          : null,
     }));
 
     return res.status(200).json(simplifiedTemplates);
@@ -339,18 +410,28 @@ export const filterDocumentTemplates = async (req, res) => {
     }
 
     // Execute the query
-    const templates = await DocumentTemplate.find(query)
-      .populate({ path: 'subCategoryId', populate: { path: 'categoryId', select: 'name' }, select: 'name categoryId' });
+    const templates = await DocumentTemplate.find(query).populate({
+      path: "subCategoryId",
+      populate: { path: "categoryId", select: "name" },
+      select: "name categoryId",
+    });
 
     if (templates.length === 0) {
-      return res.status(404).json({ message: "No document templates found matching the criteria" });
+      return res
+        .status(404)
+        .json({ message: "No document templates found matching the criteria" });
     }
 
     const simplifiedTemplates = templates.map((template) => ({
       _id: template._id,
       documentTitle: template.title,
-      subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
-      categoryName: template.subCategoryId && template.subCategoryId.categoryId ? template.subCategoryId.categoryId.name : null,
+      subCategoryName: template.subCategoryId
+        ? template.subCategoryId.name
+        : null,
+      categoryName:
+        template.subCategoryId && template.subCategoryId.categoryId
+          ? template.subCategoryId.categoryId.name
+          : null,
     }));
 
     return res.status(200).json(simplifiedTemplates);
@@ -359,7 +440,6 @@ export const filterDocumentTemplates = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 async function createIndexes() {
   try {
@@ -387,5 +467,5 @@ export default {
   getDocumentBySub,
   getConditionsByTemp,
   searchDocumentTemplatesByTitle,
-  filterDocumentTemplates
+  filterDocumentTemplates,
 };
