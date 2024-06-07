@@ -1,7 +1,7 @@
 import User from '../models/users.model.js';
 import Document from '../models/document.model.js';
 import Workflow from '../models/workflow.model.js';
-// import PermissionChange from '../models/permissionChangeModel';
+
 
 // GET: http://localhost:5000/admin/reports/system-activity
 export async function getSystemActivityDashboard(req, res) {
@@ -51,16 +51,22 @@ export async function getSystemActivityDashboard(req, res) {
       {
         $unwind: "$template",
       },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          status: '$_id',
+          count: 1,
+          _id: 0
+        }
+      }
     ]);
 
-    // const permissionsChanges = await PermissionChange.aggregate([
-    //   {
-    //     $group: {
-    //       _id: "$type",
-    //       count: { $sum: 1 },
-    //     },
-    //   },
-    // ]);
+
 
     const response = {
       activeUsers: activeUsers.map(item => ({
@@ -75,10 +81,7 @@ export async function getSystemActivityDashboard(req, res) {
         template: item.template.name,
         count: item.count,
       })),
-    //   permissionsChanges: permissionsChanges.map(item => ({
-    //     type: item._id,
-    //     count: item.count,
-    //   })),
+   
     };
 
     res.status(200).json(response);
