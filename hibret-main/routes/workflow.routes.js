@@ -11,7 +11,6 @@ import {
   moveStageBackward,
   approveWorkflow,
   rejectWorkflow,
-  ownerEditAndMoveForward,
   getWorkflowDetails,
   getAllWorkflowsOfOwner,
   getAllRequiredDocuments,
@@ -59,8 +58,6 @@ router.post("/workflows/backward", moveStageBackward);
 router.post("/workflows/approve", approveWorkflow);
 router.post("/workflows/reject", rejectWorkflow);
 
-// Route for the owner to edit and move the workflow forward
-router.post("/workflows/:id/owner/edit", ownerEditAndMoveForward);
 
 router.get("/workflows/:workflowId/user/:userId", getWorkflowDetails);
 

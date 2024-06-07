@@ -21,6 +21,7 @@
     "express": "^4.19.2",
     "express-session": "^1.18.0",
     "fs": "^0.0.1-security",
+    "http": "^0.0.1-security",
     "joi": "^17.13.0",
     "jsonwebtoken": "^9.0.2",
     "mailgen": "^2.0.28",
@@ -38,6 +39,7 @@
     "pdf-merger-js": "^5.1.1",
     "pdfkit": "^0.15.0",
     "pdfmake": "^0.2.10",
+    "socket.io": "^4.7.5",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
     "uuid": "^9.0.1"
