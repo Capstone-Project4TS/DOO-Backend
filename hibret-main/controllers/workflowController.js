@@ -927,39 +927,38 @@ export const getWorkflowDetails = async (req, res) => {
     if (!workflow) {
       return res.status(404).json({ message: "Workflow not found" });
     }
-
-
     // Check if the user is a member of any committee
     const committee = await Committee.findOne({ members: userId });
-    let assignedUser;
-    let isActiveUser = false;
-    let tbrb;
+    // var assignedUser = null;
+    // var isActiveUser = false;
+    var tbrb = "";
 
-    if (committee) {
-      // If user is a committee member, check if the committee is assigned to the workflow
-      assignedUser = workflow.assignedUsers.find(
-        user => user.committee && user.committee.toString() === committee._id.toString()
-      );
-      isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
-      tbrb = "Committee";
-    } else {
+    // if (committee) {
+    //   // If user is a committee member, check if the committee is assigned to the workflow
+    //   assignedUser = workflow.assignedUsers.find(
+    //     user => user.committee && user.committee.toString() === committee._id.toString()
+    //   );
+    //   isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+    //   tbrb = "Committee";
+    // } else {
+
       // Check if user is assigned to the workflow and active in the current stage
-      assignedUser = workflow.assignedUsers.find(
-        user => user.user && user.user._id.toString() === userId
-      );
-      isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
-      tbrb = "Single Person"
-    }
+      
+      const assignedUser = workflow.assignedUsers.find(user => user.user && user.user.toString() === userId);
+      const isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+      tbrb = "Single Person";
+    // }
+
 
 
     // Check user permissions and determine button visibility
-    const isOwner = workflow.user._id.toString() === userId;
+    const isOwner = workflow.user.toString() === userId;
     const currentStageIndex = workflow.currentStageIndex;
     const canMoveForward =
-      isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1;
-    const canMoveBackward = isActiveUser && currentStageIndex > 0;
+      isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1 || true;
+    const canMoveBackward = isActiveUser && currentStageIndex > 0 || true;
     const canApprove =
-      isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1;
+      isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1 || true;
     const isActive = isActiveUser;
     const canEdit = isOwner && currentStageIndex == -1;
 
