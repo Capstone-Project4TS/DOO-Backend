@@ -5,7 +5,15 @@ const documentTemplateSchema = new Schema({
   title: {
     type: String,
     required: true,
-    unique: true, // Ensure unique names
+  },
+  version: {
+    type: Number,
+    required: true,
+    default: 1,
+  },
+  isDeprecated: {
+    type: Boolean,
+    default: false,
   },
   categoryId: {
     type: Schema.Types.ObjectId,

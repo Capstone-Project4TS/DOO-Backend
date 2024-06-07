@@ -1,7 +1,7 @@
 import DocumentTemplate from "../models/documentTemplate.model.js";
 import mongoose from "mongoose";
 import Document from '../models/document.model.js'; // Adjust the import as per your project structure
-
+import { deepEqual } from "../services/workflowService.js";
 // Create a new document template
 // error handled 
 export async function createDocumentTemplate(req, res) {
@@ -151,14 +151,13 @@ export async function getDocumentTemplateById(req, res) {
   }
 }
 
-
 // Update a document template
 export async function updateDocumentTemplate(req, res) {
   try {
-    const { title, sections, conditionalLogic } = req.body;
+    const { sections } = req.body;
 
     // Input validation for required fields
-    if (!title || !sections) {
+    if ( !sections) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -168,30 +167,45 @@ export async function updateDocumentTemplate(req, res) {
       return res.status(404).json({ message: "Document template not found" });
     }
 
-    // Update the document template
-    const updatedTemplate = await DocumentTemplate.findByIdAndUpdate(
-      req.params.id,
-      { title, sections, conditionalLogic },
-      { new: true } // Return the updated document
-    );
-
-    // Update the titles of documents created using this template if the name has changed
-    if (title !== existingTemplate.name) {
-      await Document.updateMany(
-        { templateId: req.params.id },
-        { $set: { title: title } } // Assuming there is a templateTitle field in the Document model
-      );
+    // Check if the new structure is different from the current one
+    if (
+      
+      deepEqual(sections, existingTemplate.sections)
+    ) {
+      // If the structure is the same, no need to create a new version
+      return res.status(200).json({
+        message: "No structural changes detected. Template not updated.",
+        template: existingTemplate,
+      });
     }
 
+    // Create a new version of the template
+    const newVersion = existingTemplate.version + 1;
+    const newTemplate = new DocumentTemplate({
+      title: existingTemplate.title,
+      sections,
+      version: newVersion,
+      categoryId: existingTemplate.categoryId,
+      subCategoryId: existingTemplate.subCategoryId,
+      depId: existingTemplate.depId,
+    });
+
+    await newTemplate.save();
+
+    // Mark the old template as deprecated
+    existingTemplate.isDeprecated = true;
+    await existingTemplate.save();
+
     res.json({
-      message: "Document template and associated documents updated successfully",
-      template: updatedTemplate
+      message: "Document template updated successfully",
+      template: newTemplate,
     });
   } catch (error) {
     console.error("Error updating document template:", error);
     res.status(500).json({ error: "Failed to update document template" });
   }
 }
+
 
 export async function deleteDocumentTemplate(req, res) {
   try {
@@ -346,28 +360,6 @@ export const filterDocumentTemplates = async (req, res) => {
   }
 };
 
-
-
-//         // Query database to fetch document templates based on provided template IDs
-//         const documentTemplates = await DocumentTemplate.find({ _id: { $in: templateIds } }).populate('eligibleConditions');
-
-//         // Map over document templates to format the data
-//         const formattedTemplates = documentTemplates.map(template => ({
-//             _id: template._id,
-//             name: template.name,
-//             description: template.description,
-//             eligibleConditions: template.eligibleConditions.map(condition => ({
-//                 fieldName: condition.fieldName,
-//                 dataType: condition.dataType
-//             }))
-//         }));
-
-//         return formattedTemplates;
-//     } catch (error) {
-//         // Handle error
-//         throw new Error('Failed to fetch eligible conditions for document templates');
-//     }
-// }
 
 async function createIndexes() {
   try {
