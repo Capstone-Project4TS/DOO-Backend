@@ -6,11 +6,11 @@ const documentTemplateSchema = new Schema({
     type: String,
     required: true,
   },
-  version: {
-    type: Number,
-    required: true,
-    default: 1,
-  },
+  // version: {
+  //   type: Number,
+  //   // required: true,
+  //   default: 1,
+  // },
   isDeprecated: {
     type: Boolean,
     default: false,

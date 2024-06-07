@@ -8,10 +8,10 @@ const documentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "DocumentTemplate",
     },
-    templateVersion: {
-      type: Number,
-      required: true,
-    },
+    // templateVersion: {
+    //   type: Number,
+    //   required: true,
+    // },
     title: {
       type: String,
       // required: true

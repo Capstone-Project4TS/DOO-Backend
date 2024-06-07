@@ -10,20 +10,9 @@ import { sendNotification } from "./notification.js";
 import { io } from '../server.js';
 import mongoose from "mongoose";
 import { handleMajorityDecision,aggregateVotes } from "../services/workflowHelp.js";
-
+import * as WorkflowService from '../services/workflowService.js'
 const { ObjectId } = mongoose.Types;
 
-// Utility function to flatten nested arrays
-const flattenArray = (arr) =>
-  arr.reduce(
-    (acc, val) => acc.concat(Array.isArray(val) ? flattenArray(val) : val),
-    []
-  );
-
-function getCurrentQuarter() {
-  const month = new Date().getMonth() + 1; // getMonth() returns 0-11
-  return Math.floor((month - 1) / 3) + 1;
-}
 
 export async function createWorkflow(req, res) {
   // const documentData = JSON.parse(req.body.documentData);
@@ -144,7 +133,7 @@ export async function createWorkflow(req, res) {
 
       // Update or create user workflow entry
       let userWorkflow = await UserWorkflow.findOneAndUpdate(
-        { assignedUserId },
+        { userId },
         {
           $addToSet: {
             workflows: {

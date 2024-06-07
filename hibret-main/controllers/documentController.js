@@ -104,7 +104,7 @@ export async function handleData(reqDocs, addDocs) {
     };
 
     await processDocs(reqDocs);
-    if (addDocs.length > 0) {
+    if (addDocs) {
       await processDocs(addDocs);
     }
 
