@@ -3,6 +3,7 @@ import Workflow from '../models/workflow.model.js'; // Adjust the import as per 
 import DocumentTemplate from "../models/documentTemplate.model.js";
 import mongoose from "mongoose";
 import { deepEqual } from "../services/workflowService.js";
+import { getDeps } from "./roleController.js";
 
 // Create new workflow template
 export const createWorkflowTemplate = async (req, res) => {
@@ -126,27 +127,44 @@ export const createWorkflowTemplate = async (req, res) => {
 // Get all workflow templates
 export async function getAllWorkflowTemplates(req, res) {
   try {
-    const templates = await WorkflowTemplate.find()
+    // Fetch workflow templates that are not deprecated
+    const templates = await WorkflowTemplate.find({
+      isDeprecated: false,
+    })
       .populate({ path: "categoryId", select: "name" })
-      .populate({ path: "subCategoryId", select: "name" });
+      .populate({ path: "subCategoryId", select: "name" })
 
     if (templates.length === 0) {
       return res.status(404).json({ message: "No workflow templates found" });
     }
 
-    const simplifiedTemplates = templates.map((template) => ({
-      _id: template._id,
-      workflowName: template.name,
-      categoryName: template.categoryId ? template.categoryId.name : null,
-      subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
-    }));
+    // Fetch the list of departments
+    const deps = await getDeps();
 
+    // Simplify the template data for the response
+    const simplifiedTemplates = templates.map((template) => {
+      // Find the department name by comparing IDs
+      const department = deps.find(
+        (dep) => dep._id.toString() === template.depId.toString()
+      );
+
+      return {
+        _id: template._id,
+        workflowName: `${template.name} V${template.version}`,
+        categoryName: template.categoryId ? template.categoryId.name : null,
+        subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
+        department: department ? department.name : null,
+      };
+    });
+
+    // Return the simplified template data
     return res.status(200).json(simplifiedTemplates);
   } catch (err) {
     console.error("Error fetching workflow templates:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
+
 
 // Get all workflow templates
 export async function getAllRequiredDocumentTemplates(req, res) {
@@ -232,7 +250,7 @@ export async function getWorkflowTemplateDetailById(req, res) {
 export async function updateWorkflowTemplate(req, res) {
   try {
     const { id } = req.params;
-    const { name, stages, requiredDocumentTemplates,additionalDoc } = req.body;
+    const {  stages, requiredDocumentTemplates,additionalDoc } = req.body;
 
     // Find the existing workflow template by its ID
     const existingWorkflowTemplate = await WorkflowTemplate.findById(id);
@@ -241,20 +259,7 @@ export async function updateWorkflowTemplate(req, res) {
       return res.status(404).json({ error: 'Workflow template not found' });
     }
 
-    // Check if there are any changes in the parameters
-    const isModified = (
-      existingWorkflowTemplate.name !== name ||
-      !deepEqual(existingWorkflowTemplate.stages, stages) ||
-      !deepEqual(existingWorkflowTemplate.requiredDocumentTemplates, requiredDocumentTemplates)
-    );
-
-    // If there are no changes, return without saving
-    if (!isModified) {
-      return res.status(200).json({
-        message: 'No changes detected. Template not updated.',
-        template: existingWorkflowTemplate
-      });
-    }
+  
 
     // Create a new version of the workflow template
     const newVersion = existingWorkflowTemplate.version + 1;

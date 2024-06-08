@@ -8,11 +8,11 @@ const workflowTemplateSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  // version: {
-  //   type: Number,
-  //   // required: true,
-  //   default: 1,
-  // },
+  version: {
+    type: Number,
+    // required: true,
+    default: 1,
+  },
   isDeprecated: {
     type: Boolean,
     default: false,
