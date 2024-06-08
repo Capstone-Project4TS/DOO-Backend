@@ -70,7 +70,7 @@ export async function createDocumentTemplate(req, res) {
     await newTemplate.save();
     return res
       .status(201)
-      .json({ message: "Document template created successfully", newTemplate });
+      .json({ message: "Document template created successfully" });
   } catch (err) {
     if (err.code === 11000) {
       // Duplicate key error

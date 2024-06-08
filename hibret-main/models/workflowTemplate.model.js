@@ -6,7 +6,6 @@ const workflowTemplateSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
   },
   version: {
     type: Number,
@@ -56,8 +55,7 @@ const workflowTemplateSchema = new mongoose.Schema({
         role_ids: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Committee",
-        },
-        min_approvals: Number, // Only for approval permission
+        }
       }, // Conditional, if reviewer_type is "Committee"
       single_permissions: {
         role_id: {
@@ -91,8 +89,7 @@ const workflowTemplateSchema = new mongoose.Schema({
             role_ids: {
               type: mongoose.Schema.Types.ObjectId,
               ref: "Committee",
-            },
-            min_approvals: Number, // Only for approval permission
+            }
           }, // Conditional, if reviewer_type is "Committee"
           single_permissions: {
             role_id: {
@@ -125,7 +122,8 @@ const workflowTemplateSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "DocumentTemplate", // Reference to the DocumentTemplate model
   },
-},{
+},
+{
   timestamps: true,
 });
 

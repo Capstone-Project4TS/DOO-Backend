@@ -81,7 +81,7 @@ const documentTemplateSchema = new Schema({
           conditionalLogic: {
             // Define logic for displaying sections based on conditions
             type: Boolean,
-            optional: true,
+            default: false,
           },
         },
       ],

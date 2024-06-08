@@ -1,8 +1,7 @@
 import WorkflowTemplate from "../models/workflowTemplate.model.js";
-import Workflow from '../models/workflow.model.js'; // Adjust the import as per your project structure
+import Workflow from "../models/workflow.model.js"; // Adjust the import as per your project structure
 import DocumentTemplate from "../models/documentTemplate.model.js";
 import mongoose from "mongoose";
-import { deepEqual } from "../services/workflowService.js";
 import { getDeps } from "./roleController.js";
 
 // Create new workflow template
@@ -36,25 +35,37 @@ export const createWorkflowTemplate = async (req, res) => {
       !mongoose.Types.ObjectId.isValid(subCategoryId) ||
       !mongoose.Types.ObjectId.isValid(depId)
     ) {
-      return res.status(400).json({ error: "Invalid category, subcategory, or repository ID" });
+      return res
+        .status(400)
+        .json({ error: "Invalid category, subcategory, or repository ID" });
     }
 
     // Validate stages
     for (const stage of stages) {
       if (!stage.stageTitle || typeof stage.stageTitle !== "string") {
-        return res.status(400).json({ error: "Invalid stage data: Missing or invalid stage title" });
+        return res
+          .status(400)
+          .json({
+            error: "Invalid stage data: Missing or invalid stage title",
+          });
       }
 
       // Validate condition
       if (stage.hasCondition) {
         if (!stage.condition) {
-          return res.status(400).json({ error: "Condition required when hasCondition is true" });
+          return res
+            .status(400)
+            .json({ error: "Condition required when hasCondition is true" });
         }
 
         // Validate condition variants (if present)
         if (stage.conditionVariants && stage.conditionVariants.length) {
           if (!stage.hasCondition) {
-            return res.status(400).json({ error: "conditionVariants require hasCondition to be true" });
+            return res
+              .status(400)
+              .json({
+                error: "conditionVariants require hasCondition to be true",
+              });
           }
 
           for (const variant of stage.conditionVariants) {
@@ -67,7 +78,12 @@ export const createWorkflowTemplate = async (req, res) => {
                 typeof variant.value === "string"
               )
             ) {
-              return res.status(400).json({ error: "Invalid condition variant: Missing required properties or invalid value format" });
+              return res
+                .status(400)
+                .json({
+                  error:
+                    "Invalid condition variant: Missing required properties or invalid value format",
+                });
             }
 
             // Validate approverType within conditionVariants
@@ -75,17 +91,31 @@ export const createWorkflowTemplate = async (req, res) => {
               !variant.approverType ||
               !["Single Person", "Committee"].includes(variant.approverType)
             ) {
-              return res.status(400).json({ error: "Invalid condition variant: Missing or invalid approver type" });
+              return res
+                .status(400)
+                .json({
+                  error:
+                    "Invalid condition variant: Missing or invalid approver type",
+                });
             }
           }
         }
-
       } else {
         if (stage.condition || stage.conditionVariants?.length) {
-          return res.status(400).json({ error: "Condition and conditionVariants should be empty when hasCondition is false" });
+          return res
+            .status(400)
+            .json({
+              error:
+                "Condition and conditionVariants should be empty when hasCondition is false",
+            });
         }
         if (!["Single Person", "Committee"].includes(stage.approverType)) {
-          return res.status(400).json({ error: "Invalid stage data: Missing required properties or invalid approver type" });
+          return res
+            .status(400)
+            .json({
+              error:
+                "Invalid stage data: Missing required properties or invalid approver type",
+            });
         }
       }
     }
@@ -93,9 +123,13 @@ export const createWorkflowTemplate = async (req, res) => {
     // Check if an additional document is required and find the additional document template
     let additionalDocumentTemplate = null;
     if (additionalDoc) {
-      const additionalDocTemplate = await DocumentTemplate.findOne({ title: "Additional Document" });
+      const additionalDocTemplate = await DocumentTemplate.findOne({
+        title: "Additional Document",
+      });
       if (!additionalDocTemplate) {
-        return res.status(404).json({ error: "Additional document template not found" });
+        return res
+          .status(404)
+          .json({ error: "Additional document template not found" });
       }
       additionalDocumentTemplate = additionalDocTemplate._id;
     }
@@ -113,11 +147,20 @@ export const createWorkflowTemplate = async (req, res) => {
 
     const savedTemplate = await newTemplate.save();
 
-    res.status(201).json({ message: "Workflow template created successfully", savedTemplate });
+    res
+      .status(201)
+      .json({
+        message: "Workflow template created successfully",
+        savedTemplate,
+      });
   } catch (err) {
     if (err.code === 11000) {
       // Duplicate key error
-      return res.status(400).json({ error: "A workflow template with the same name already exists" });
+      return res
+        .status(400)
+        .json({
+          error: "A workflow template with the same name already exists",
+        });
     }
     console.error("Error creating workflow template:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -132,7 +175,7 @@ export async function getAllWorkflowTemplates(req, res) {
       isDeprecated: false,
     })
       .populate({ path: "categoryId", select: "name" })
-      .populate({ path: "subCategoryId", select: "name" })
+      .populate({ path: "subCategoryId", select: "name" });
 
     if (templates.length === 0) {
       return res.status(404).json({ message: "No workflow templates found" });
@@ -152,7 +195,9 @@ export async function getAllWorkflowTemplates(req, res) {
         _id: template._id,
         workflowName: `${template.name} V${template.version}`,
         categoryName: template.categoryId ? template.categoryId.name : null,
-        subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
+        subCategoryName: template.subCategoryId
+          ? template.subCategoryId.name
+          : null,
         department: department ? department.name : null,
       };
     });
@@ -164,7 +209,6 @@ export async function getAllWorkflowTemplates(req, res) {
     return res.status(500).json({ message: "Internal server error" });
   }
 }
-
 
 // Get all workflow templates
 export async function getAllRequiredDocumentTemplates(req, res) {
@@ -183,7 +227,9 @@ export async function getAllRequiredDocumentTemplates(req, res) {
     const additionalDoc = template.additionalDocumentTemplate;
 
     // Send document contents array as response
-    res.status(200).json({ documents, additionalDoc, additional: template.additionalDoc });
+    res
+      .status(200)
+      .json({ documents, additionalDoc, additional: template.additionalDoc });
   } catch (err) {
     console.error("Error fetching document templates:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -205,7 +251,7 @@ export async function getWorkflowTemplateDetailById(req, res) {
       .populate({ path: 'categoryId', select: 'name' })
       .populate({ path: 'subCategoryId', select: 'name' })
       .populate({ path: 'stages.committee_permissions.role_ids', select: 'name' })
-      .populate({ path: 'stages.single_permissions.role_id', select: 'name' })
+      .populate({ path: 'stages.single_permissions.role_id', select: 'roleName' })
       .populate({ path: 'requiredDocumentTemplates', select: 'title' })
       .populate({ path: 'additionalDocumentTemplate', select: 'title' });
 
@@ -213,22 +259,26 @@ export async function getWorkflowTemplateDetailById(req, res) {
       return res.status(404).json({ message: 'Workflow template not found' });
     }
 
+    // Fetch department names
+    const deps = await getDeps();
+
     // Sanitize the workflow template to include necessary details only
     const workflowTemplateDetail = {
       _id: template._id,
       name: template.name,
       category: template.categoryId ? template.categoryId.name : null,
       subCategory: template.subCategoryId ? template.subCategoryId.name : null,
+      department: deps.find(dep => dep._id.toString() === template.depId.toString())?.name || null,
       stages: template.stages.map(stage => ({
         title: stage.stageTitle,
         approverType: stage.approverType,
         committeePermissions: stage.committee_permissions ? {
           permission: stage.committee_permissions.permission,
-          roles: stage.committee_permissions.role_ids.map(role => role.name),
+          committee: stage.committee_permissions.role_ids ? stage.committee_permissions.role_ids.name : null,
           minApprovals: stage.committee_permissions.min_approvals,
         } : null,
         singlePermissions: stage.single_permissions ? {
-          role: stage.single_permissions.role_id ? stage.single_permissions.role_id.name : null,
+          role: stage.single_permissions.role_id ? stage.single_permissions.role_id.roleName : null,
           permission: stage.single_permissions.permission,
         } : null,
       })),
@@ -249,49 +299,57 @@ export async function getWorkflowTemplateDetailById(req, res) {
 // Update a workflow template
 export async function updateWorkflowTemplate(req, res) {
   try {
-    const { id } = req.params;
-    const {  stages, requiredDocumentTemplates,additionalDoc } = req.body;
+    const { stages, requiredDocumentTemplates, additionalDoc } = req.body;
 
-    // Find the existing workflow template by its ID
-    const existingWorkflowTemplate = await WorkflowTemplate.findById(id);
-
-    if (!existingWorkflowTemplate) {
-      return res.status(404).json({ error: 'Workflow template not found' });
+    // Input validation for required fields
+    if (!stages || !requiredDocumentTemplates) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-  
+    // Find the existing workflow template by its ID
+    const existingTemplate = await WorkflowTemplate.findById(req.params.id);
+    if (!existingTemplate) {
+      return res.status(404).json({ error: "Workflow template not found" });
+    }
+
+    // Find the latest version of the template
+    const latestTemplate = await WorkflowTemplate.findOne({
+      name: existingTemplate.name,
+      categoryId: existingTemplate.categoryId,
+      subCategoryId: existingTemplate.subCategoryId,
+      depId: existingTemplate.depId,
+    }).sort({ version: -1 });
 
     // Create a new version of the workflow template
-    const newVersion = existingWorkflowTemplate.version + 1;
+    const newVersion = latestTemplate.version + 1;
     const newTemplate = new WorkflowTemplate({
-      name,
+      name: latestTemplate.name,
       stages,
       requiredDocumentTemplates,
       version: newVersion,
-      categoryId: existingWorkflowTemplate.categoryId,
-      subCategoryId: existingWorkflowTemplate.subCategoryId,
-      depId: existingWorkflowTemplate.depId,
-      additionalDoc:additionalDoc
+      categoryId: latestTemplate.categoryId,
+      subCategoryId: latestTemplate.subCategoryId,
+      depId: latestTemplate.depId,
+      additionalDoc: additionalDoc,
     });
 
     await newTemplate.save();
 
     // Mark the old template as deprecated
-    existingWorkflowTemplate.isDeprecated = true;
-    await existingWorkflowTemplate.save();
+    latestTemplate.isDeprecated = true;
+    await latestTemplate.save();
 
     res.status(200).json({
-      message: 'Workflow template updated successfully',
-      template: newTemplate
+      message: "Workflow template updated successfully",
+      template: newTemplate,
     });
   } catch (error) {
-    console.error('Error updating workflow template:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error updating workflow template:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 }
 
-
- // Delete a Workflow Template
+// Delete a Workflow Template
 export async function deleteWorkflowTemplate(req, res) {
   try {
     const { id } = req.params;
@@ -303,9 +361,16 @@ export async function deleteWorkflowTemplate(req, res) {
     }
 
     // Check if any workflows are created using this template
-    const workflowsUsingTemplate = await Workflow.findOne({ workflowTemplate: id });
+    const workflowsUsingTemplate = await Workflow.findOne({
+      workflowTemplate: id,
+    });
     if (workflowsUsingTemplate) {
-      return res.status(403).json({ message: "Cannot delete workflow template. Workflows are created using this template." });
+      return res
+        .status(403)
+        .json({
+          message:
+            "Cannot delete workflow template. Workflows are created using this template.",
+        });
     }
 
     // Delete the workflow template if no workflows are created using it
@@ -329,19 +394,25 @@ export const searchWorkflowTemplatesByName = async (req, res) => {
     }
 
     // Search by name
-    const templates = await WorkflowTemplate.find({ name: { $regex: new RegExp(name, 'i') } })
-      .populate({ path: 'categoryId', select: 'name' })
-      .populate({ path: 'subCategoryId', select: 'name' });
+    const templates = await WorkflowTemplate.find({
+      name: { $regex: new RegExp(name, "i") },
+    })
+      .populate({ path: "categoryId", select: "name" })
+      .populate({ path: "subCategoryId", select: "name" });
 
     if (templates.length === 0) {
-      return res.status(404).json({ message: "No workflow templates found matching the name" });
+      return res
+        .status(404)
+        .json({ message: "No workflow templates found matching the name" });
     }
 
     const simplifiedTemplates = templates.map((template) => ({
       _id: template._id,
       workflowName: template.name,
       categoryName: template.categoryId ? template.categoryId.name : null,
-      subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
+      subCategoryName: template.subCategoryId
+        ? template.subCategoryId.name
+        : null,
     }));
 
     return res.status(200).json(simplifiedTemplates);
@@ -376,18 +447,22 @@ export const filterWorkflowTemplates = async (req, res) => {
 
     // Execute the query
     const templates = await WorkflowTemplate.find(query)
-      .populate({ path: 'categoryId', select: 'name' })
-      .populate({ path: 'subCategoryId', select: 'name' });
+      .populate({ path: "categoryId", select: "name" })
+      .populate({ path: "subCategoryId", select: "name" });
 
     if (templates.length === 0) {
-      return res.status(404).json({ message: "No workflow templates found matching the criteria" });
+      return res
+        .status(404)
+        .json({ message: "No workflow templates found matching the criteria" });
     }
 
     const simplifiedTemplates = templates.map((template) => ({
       _id: template._id,
       workflowName: template.name,
       categoryName: template.categoryId ? template.categoryId.name : null,
-      subCategoryName: template.subCategoryId ? template.subCategoryId.name : null,
+      subCategoryName: template.subCategoryId
+        ? template.subCategoryId.name
+        : null,
     }));
 
     return res.status(200).json(simplifiedTemplates);
@@ -404,5 +479,5 @@ export default {
   // updateWorkflowTemplate,
   deleteWorkflowTemplate,
   searchWorkflowTemplatesByName,
-  filterWorkflowTemplates
+  filterWorkflowTemplates,
 };

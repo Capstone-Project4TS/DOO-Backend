@@ -8,7 +8,6 @@ import * as EmailService from "../services/emailService.js";
 import * as UserService from "../services/userService.js";
 import otpGenerator from "otp-generator";
 import RoleModel from '../models/role.model.js';
-import e from "express";
 
 const OTP_EXPIRATION_TIME = 5 * 60 * 1000; // OTP expiration time in milliseconds (e.g., 5 minutes)
 
