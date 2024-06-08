@@ -27,13 +27,13 @@ router.route("/logout").post(isLoggedIn, auth.Logout); // login in app
 
 /** GET Methods */
 router.route("/admin/getAllUsers").get(isLoggedIn,authorize(["DooAdmin"]), user.getAllUsers); 
-router.route("/verifyOTP").post(Auth, user.verifyOTP); // verify generated OTP
+router.route("/verifyOTP").post( user.verifyOTP); // verify generated OTP
 router.route("/createResetSession").get(user.createResetSession); // reset all the variables
 router.route("/admin/filterUsers").get(isLoggedIn,authorize(["DooAdmin"]),user.filterUsersByRoleAndStatus); // get users by role and status
 router.route("/admin/searchUsers").get(isLoggedIn,authorize(["DooAdmin"]),user.searchUsers); // get users by role and status
 
 /** PUT Methods */
-router.route("/resetPassword").put( Auth,user.resetPassword); // use to reset password
+router.route("/resetPassword").put( user.resetPassword); // use to reset password
 router.route("/change-password").put(isLoggedIn, Auth, user.changePassword);
 router
   .route("/admin/users/:userId/deactivate")

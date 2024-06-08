@@ -8,6 +8,7 @@ import * as EmailService from "../services/emailService.js";
 import * as UserService from "../services/userService.js";
 import otpGenerator from "otp-generator";
 import RoleModel from '../models/role.model.js';
+import e from "express";
 
 const OTP_EXPIRATION_TIME = 5 * 60 * 1000; // OTP expiration time in milliseconds (e.g., 5 minutes)
 
@@ -148,21 +149,15 @@ export async function getAllUsers(req, res) {
   }
 }
 
-
 /** POST: http://localhost:5000/api/generateOTP */
 let OTP_STATE = {};
-
+let EMAIL="";
 export async function generateOTP(req, res) {
   console.log('generateOTP function called');
 
   const { email } = req.body;
   const user = await UserModel.findOne({ email });
-
-  if (!user) {
-    console.log('User not found');
-    return res.status(404).json({ message: 'User not found' });
-  }
-
+  EMAIL= user.email;
   console.log('Current OTP state:', OTP_STATE);
 
   // Check if an OTP has been generated recently
@@ -231,7 +226,7 @@ export async function createResetSession(req, res) {
 
 /** PUT: http://localhost:5000/api/resetPassword */
 export async function resetPassword(req, res) {
-  const id = req.user;
+  const email= EMAIL;
   try {
     if (!req.app.locals.resetSession) {
       return res.status(440).send({ error: "Session expired!" });
@@ -239,7 +234,7 @@ export async function resetPassword(req, res) {
 
     const { password } = req.body;
 
-    const user = await UserModel.findOne({ _id: id.userId });
+    const user = await UserModel.findOne({ email: email});
     if (!user) {
       return res.status(404).send({ error: "Username not Found" });
     }
@@ -253,6 +248,7 @@ export async function resetPassword(req, res) {
     );
 
     req.app.locals.resetSession = false; // reset session
+    EMAIL=null
     return res
       .status(201)
       .send({ msg: "You have successfully resetted your password...!" });
