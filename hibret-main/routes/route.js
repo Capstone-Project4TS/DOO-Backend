@@ -1,18 +1,16 @@
 import { Router } from "express";
 const router = Router();
-
-/** import all controllers */
-import * as auth from "../controllers/authController.js";
-import * as user from "../controllers/userController.js";
 import Auth, {
   localVariables,
-  adminMiddleware,
   authorize,
   isLoggedIn,
 } from "../middleware/auth.js";
 
+/** import all controllers */
+import * as auth from "../controllers/authController.js";
+import * as user from "../controllers/userController.js";
+
 /** POST Methods */
-// router.route('/admin/users/create').post(isLoggedIn,authorize(["DooAdmin"]),user.createAccounts); // register user
 router
   .route("/sendInvitation")
   .post(isLoggedIn, authorize(["DooAdmin"]), user.sendInvitations); // send the otp

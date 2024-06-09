@@ -1,5 +1,11 @@
 import { Router } from "express";
 const router = Router();
+import Auth, {
+  localVariables,
+  adminMiddleware,
+  authorize,
+  isLoggedIn,
+} from "../middleware/auth.js";
 
 import {
   createDocumentTemplate,
@@ -18,40 +24,38 @@ import {
 } from "../controllers/documentTemplateController.js";
 
 // Create a new document template (POST)
-router.post("/documentTemplate", createDocumentTemplate);
+router.post("/documentTemplate", isLoggedIn,authorize(["DooAdmin"]), createDocumentTemplate);
 
 // Get all document templates (GET)
-router.get("/documentTemplate", getAllDocumentTemplates);
+router.get("/documentTemplate", isLoggedIn, getAllDocumentTemplates);
 
 // Get a single document template by ID (GET)
-router.get("/documentTemplate/get/:id", getDocumentTemplateById);
+router.get("/documentTemplate/get/:id",isLoggedIn, getDocumentTemplateById);
 
-router.get("/documentTemplate/getArchived/:id", getArchivedDocumentTemplates);
+router.get("/documentTemplate/getArchived/:id",isLoggedIn,authorize(["DooAdmin"]), getArchivedDocumentTemplates);
 
 
 // Get all documents with a subcategory ID (GET)
-router.get("/documentTemplate/sub/:id", getDocumentBySub);
+router.get("/documentTemplate/sub/:id",isLoggedIn, getDocumentBySub);
 
 // Get all conditions of each docTemp (GET)
-router.post("/documentTemplate/conditions", getConditionsByTemp);
+router.post("/documentTemplate/conditions",isLoggedIn, getConditionsByTemp);
 
 // Update a document template (PUT)
-router.put("/documentTemplate/:id", updateDocumentTemplate);
+router.put("/documentTemplate/:id", isLoggedIn,authorize(["DooAdmin"]),updateDocumentTemplate);
 
 // Delete a document template (DELETE)
-router.delete("/documentTemplate/:id", deleteDocumentTemplate);
-router.delete("/documentTemplate/deleteArchived/:id", deleteArchivedDocumentTemplate);
+router.delete("/documentTemplate/:id", isLoggedIn, authorize(["DooAdmin"]), deleteDocumentTemplate);
+router.delete("/documentTemplate/deleteArchived/:id",isLoggedIn, authorize(["DooAdmin"]), deleteArchivedDocumentTemplate);
 
-router.patch("/documentTemplate/archive:id", archiveDocumentTemplate);
-router.patch("/documentTemplate/unarchive:id", unarchiveDocumentTemplate);
+router.patch("/documentTemplate/archive:id", isLoggedIn,authorize(["DooAdmin"]), archiveDocumentTemplate);
+router.patch("/documentTemplate/unarchive:id",isLoggedIn, authorize(["DooAdmin"]), unarchiveDocumentTemplate);
 
 // Define the search by title endpoint
-router.get('/document-templates/search', searchDocumentTemplatesByTitle);
+router.get('/document-templates/search', isLoggedIn, searchDocumentTemplatesByTitle);
 
 // Define the filter endpoint
-router.get('/document-templates/filter', filterDocumentTemplates);
+router.get('/document-templates/filter',isLoggedIn, filterDocumentTemplates);
 
-// Route for retrieving documents based on a document template
-// router.get('/:templateId/documents', getDocumentsByTemplateId);
 
 export default router;
