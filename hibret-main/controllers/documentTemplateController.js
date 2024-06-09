@@ -167,8 +167,7 @@ export async function getDocumentTemplateById(req, res) {
         })),
         multiple: section.multiple,
       })),
-      createdAt: template.createdAt,
-      updatedAt: template.updatedAt,
+      eligibleConditions: template.eligibleConditions, // Include eligible conditions
     };
 
     // Return the document template details
