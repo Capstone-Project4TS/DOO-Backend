@@ -7,12 +7,14 @@ import { handleData } from "../controllers/documentController.js";
 import Committee from "../models/committee.model.js";
 import Folder from "../models/folder.model.js";
 import { sendNotification } from "./notification.js";
-import { io } from '../server.js';
+import { io } from "../server.js";
 import mongoose from "mongoose";
-import { handleMajorityDecision,aggregateVotes } from "../services/workflowHelp.js";
-import * as WorkflowService from '../services/workflowService.js'
+import {
+  handleMajorityDecision,
+  aggregateVotes,
+} from "../services/workflowHelp.js";
+import * as WorkflowService from "../services/workflowService.js";
 const { ObjectId } = mongoose.Types;
-
 
 export async function createWorkflow(req, res) {
   // const documentData = JSON.parse(req.body.documentData);
@@ -58,11 +60,19 @@ export async function createWorkflow(req, res) {
       const committee = await Committee.findById(assignedUser);
       if (committee) {
         const userType = "Committee";
-        assignedUsers.push({ userType: userType, committee: assignedUser, stageIndex: index });
-      }
-      else { 
+        assignedUsers.push({
+          userType: userType,
+          committee: assignedUser,
+          stageIndex: index,
+        });
+      } else {
         const userType = "User";
-        assignedUsers.push({ userType: userType, user: assignedUser, stageIndex: index }); }
+        assignedUsers.push({
+          userType: userType,
+          user: assignedUser,
+          stageIndex: index,
+        });
+      }
     }
 
     // Define the criteria for the hierarchy
@@ -125,7 +135,6 @@ export async function createWorkflow(req, res) {
     // Save workflow instance
     const savedWorkflow = await newWorkflow.save();
 
-
     // Update or create user workflow entry
     const userWorkflows = [];
     for (const user of assignedUsers) {
@@ -151,15 +160,31 @@ export async function createWorkflow(req, res) {
       }
 
       // Send notification to the user or committee members
-      const committee = await Committee.findById(assignedUserId).populate("members");
+      const committee = await Committee.findById(assignedUserId).populate(
+        "members"
+      );
       if (committee) {
         for (const member of committee.members) {
-          await sendNotification(member._id, userId, `You have been assigned to a new workflow as part of the committee ${committee.name}: ${workflowName}.`, savedWorkflow._id);
+          await sendNotification(
+            member._id,
+            userId,
+            `You have been assigned to a new workflow as part of the committee ${committee.name}: ${workflowName}.`,
+            savedWorkflow._id
+          );
         }
-        await sendNotification(committee.chairperson, userId, `You have been assigned to a new workflow as the chairperson of committee ${committee.name} : ${workflowName}.`, savedWorkflow._id);
-
+        await sendNotification(
+          committee.chairperson,
+          userId,
+          `You have been assigned to a new workflow as the chairperson of committee ${committee.name} : ${workflowName}.`,
+          savedWorkflow._id
+        );
       } else {
-        await sendNotification(assignedUserId, userId, `You have been assigned to a new workflow: ${workflowName}.`, savedWorkflow._id);
+        await sendNotification(
+          assignedUserId,
+          userId,
+          `You have been assigned to a new workflow: ${workflowName}.`,
+          savedWorkflow._id
+        );
       }
     }
 
@@ -349,16 +374,14 @@ export async function getWorkflowById(req, res) {
     };
 
     // Process required documents
-    const processedRequiredDocuments = workflow.requiredDocuments.map(
-      processDocument
-    );
+    const processedRequiredDocuments =
+      workflow.requiredDocuments.map(processDocument);
 
     // Process additional documents if they exist
     let processedAdditionalDocuments = [];
     if (workflow.additionalDocuments) {
-      processedAdditionalDocuments = workflow.additionalDocuments.map(
-        processDocument
-      );
+      processedAdditionalDocuments =
+        workflow.additionalDocuments.map(processDocument);
     }
 
     // Construct the result with processed documents and workflowTemplate
@@ -366,7 +389,9 @@ export async function getWorkflowById(req, res) {
       ...workflow.toObject(),
       workflowTemplate: {
         name: workflow.workflowTemplate.name,
-        stages: workflow.workflowTemplate.stages.map((stage) => stage.stageTitle),
+        stages: workflow.workflowTemplate.stages.map(
+          (stage) => stage.stageTitle
+        ),
       },
       requiredDocuments: processedRequiredDocuments,
       additionalDocuments: processedAdditionalDocuments,
@@ -379,7 +404,7 @@ export async function getWorkflowById(req, res) {
   }
 }
 
-
+// Update Workflow Function
 export async function updateWorkflow(req, res) {
   const { id } = req.params;
   const { workflowName, reqDoc, addDoc } = req.body;
@@ -417,15 +442,23 @@ export async function updateWorkflow(req, res) {
       existingWorkflow.name = workflowName;
     }
 
+    // Temporarily set currentStageIndex to -1 during update
+    const currentStageIndexBeforeUpdate = existingWorkflow.currentStageIndex;
+    existingWorkflow.currentStageIndex = -1;
+
     // Save the updated workflow
     const updatedWorkflow = await existingWorkflow.save();
+
+    // Revert currentStageIndex to its original value
+    updatedWorkflow.currentStageIndex = currentStageIndexBeforeUpdate;
+    await updatedWorkflow.save();
 
     return res.status(200).json(updatedWorkflow);
   } catch (error) {
     console.error("Error updating workflow:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
-};
+}
 
 export async function deleteWorkflow(req, res) {
   const { id } = req.params;
@@ -447,6 +480,31 @@ export async function deleteWorkflow(req, res) {
   }
 };
 
+// Cancel Workflow Function
+export const cancelWorkflow = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Check if the workflow exists
+    const existingWorkflow = await Workflow.findById(id);
+    if (!existingWorkflow) {
+      return res.status(404).json({ message: "Workflow not found" });
+    }
+
+    // Update the status of the workflow to "Cancelled"
+    existingWorkflow.status = "Cancelled";
+
+    // Save the updated workflow
+    const updatedWorkflow = await existingWorkflow.save();
+
+    return res.status(200).json(updatedWorkflow);
+  } catch (error) {
+    console.error("Error cancelling workflow:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
 
 export const moveStageForward = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
@@ -455,7 +513,6 @@ export const moveStageForward = async (req, res) => {
     const workflow = await Workflow.findById(workflowId);
     if (!workflow) {
       return res.status(404).json({ message: "Workflow not found" });
-
     }
 
     const currentStageIndex = workflow.currentStageIndex;
@@ -467,15 +524,16 @@ export const moveStageForward = async (req, res) => {
     if (committee) {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.committee.toString() === committee._id && user.stageIndex === currentStageIndex
+          user.committee.toString() === committee._id &&
+          user.stageIndex === currentStageIndex
       );
     } else {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.user.toString() === userId && user.stageIndex === currentStageIndex
+          user.user.toString() === userId &&
+          user.stageIndex === currentStageIndex
       );
     }
-
 
     if (!assignedUser) {
       return res
@@ -513,33 +571,51 @@ export const moveStageForward = async (req, res) => {
       // If the user is part of a committee, add the committee name to the comment
       if (committee) {
         commentObj.memberOf = committee.name;
-        commentObj.visibleTo.push(...committee.members.map(member => member._id.toString()));
+        commentObj.visibleTo.push(
+          ...committee.members.map((member) => member._id.toString())
+        );
       }
 
       // If the next stage involves a committee, make the comment visible to all its members
       if (nextCommittee) {
-        const nextCommitteeMembers = await Committee.findById(nextCommittee).populate("members");
+        const nextCommitteeMembers = await Committee.findById(
+          nextCommittee
+        ).populate("members");
         if (nextCommitteeMembers) {
-          commentObj.visibleTo.push(...nextCommitteeMembers.members.map(member => member._id.toString()));
+          commentObj.visibleTo.push(
+            ...nextCommitteeMembers.members.map((member) =>
+              member._id.toString()
+            )
+          );
         }
       }
 
       workflow.comments.push(commentObj);
     }
 
-    if (assignedUser.userType === 'Committee') {
+    if (assignedUser.userType === "Committee") {
       workflow.votes.push({
         stageIndex: currentStageIndex,
         committeeId: assignedUser.committee,
         memberId: userId,
-        decision: 'forward'
+        decision: "forward",
       });
 
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
 
-      if (Object.keys(voteCounts).length === assignedUser.committee.members.length) {
-        const majorityDecision = Object.keys(voteCounts).reduce((a, b) => voteCounts[a] > voteCounts[b] ? a : b);
-        await handleMajorityDecision(workflow, userId, majorityDecision, currentStageIndex, res);
+      if (
+        Object.keys(voteCounts).length === assignedUser.committee.members.length
+      ) {
+        const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
+          voteCounts[a] > voteCounts[b] ? a : b
+        );
+        await handleMajorityDecision(
+          workflow,
+          userId,
+          majorityDecision,
+          currentStageIndex,
+          res
+        );
         return;
       }
     } else {
@@ -549,7 +625,8 @@ export const moveStageForward = async (req, res) => {
         { $set: { "workflows.$.isActive": false } }
       );
 
-      const nextAssignedUser = workflow.assignedUsers[workflow.currentStageIndex];
+      const nextAssignedUser =
+        workflow.assignedUsers[workflow.currentStageIndex];
       const nextUserId = nextAssignedUser.user || nextAssignedUser.committee;
 
       await UserWorkflow.updateOne(
@@ -557,17 +634,33 @@ export const moveStageForward = async (req, res) => {
         { $set: { "workflows.$.isActive": true } }
       );
 
-      if (nextAssignedUser.userType === 'Committee') {
-        const nextCommittee = await Committee.findById(nextUserId).populate('members');
+      if (nextAssignedUser.userType === "Committee") {
+        const nextCommittee = await Committee.findById(nextUserId).populate(
+          "members"
+        );
         for (const member of nextCommittee.members) {
-          await sendNotification(member._id, userId, `Workflow ${workflow.workflowName} has reached your stage as part of the committee ${nextCommittee.name}.`, workflowId);
+          await sendNotification(
+            member._id,
+            userId,
+            `Workflow ${workflow.workflowName} has reached your stage as part of the committee ${nextCommittee.name}.`,
+            workflowId
+          );
         }
-        await sendNotification(nextCommittee.chairperson, userId, `Workflow ${workflow.workflowName} has reached your stage as the chairperson of committee ${nextCommittee.name}.`, workflowId);
+        await sendNotification(
+          nextCommittee.chairperson,
+          userId,
+          `Workflow ${workflow.workflowName} has reached your stage as the chairperson of committee ${nextCommittee.name}.`,
+          workflowId
+        );
       } else {
-        await sendNotification(nextUserId, userId, `Workflow ${workflow.workflowName} has reached your stage.`, workflowId);
+        await sendNotification(
+          nextUserId,
+          userId,
+          `Workflow ${workflow.workflowName} has reached your stage.`,
+          workflowId
+        );
       }
     }
-
 
     await workflow.save();
     return res.status(200).json({ workflow });
@@ -580,7 +673,7 @@ export const moveStageForward = async (req, res) => {
 export const moveStageBackward = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
 
-    try {
+  try {
     const workflow = await Workflow.findById(workflowId);
     if (!workflow) {
       return res.status(404).json({ message: "Workflow not found" });
@@ -595,12 +688,14 @@ export const moveStageBackward = async (req, res) => {
     if (committee) {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.committee.toString() === committee._id.toString() && user.stageIndex === currentStageIndex
+          user.committee.toString() === committee._id.toString() &&
+          user.stageIndex === currentStageIndex
       );
     } else {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.user.toString() === userId && user.stageIndex === currentStageIndex
+          user.user.toString() === userId &&
+          user.stageIndex === currentStageIndex
       );
     }
 
@@ -633,33 +728,51 @@ export const moveStageBackward = async (req, res) => {
       // If the user is part of a committee, add the committee name to the comment
       if (committee) {
         commentObj.memberOf = committee.name;
-        commentObj.visibleTo.push(...committee.members.map(member => member._id.toString()));
+        commentObj.visibleTo.push(
+          ...committee.members.map((member) => member._id.toString())
+        );
       }
 
       // If the previous stage involves a committee, make the comment visible to all its members
       if (prevCommittee) {
-        const prevCommitteeMembers = await Committee.findById(prevCommittee).populate("members");
+        const prevCommitteeMembers = await Committee.findById(
+          prevCommittee
+        ).populate("members");
         if (prevCommitteeMembers) {
-          commentObj.visibleTo.push(...prevCommitteeMembers.members.map(member => member._id.toString()));
+          commentObj.visibleTo.push(
+            ...prevCommitteeMembers.members.map((member) =>
+              member._id.toString()
+            )
+          );
         }
       }
 
       workflow.comments.push(commentObj);
     }
 
-    if (assignedUser.userType === 'Committee') {
+    if (assignedUser.userType === "Committee") {
       workflow.votes.push({
         stageIndex: currentStageIndex,
         committeeId: assignedUser.committee,
         memberId: userId,
-        decision: 'revert',
+        decision: "revert",
       });
 
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
 
-      if (Object.keys(voteCounts).length === assignedUser.committee.members.length) {
-        const majorityDecision = Object.keys(voteCounts).reduce((a, b) => voteCounts[a] > voteCounts[b] ? a : b);
-        await handleMajorityDecision(workflow, userId, majorityDecision, currentStageIndex, res);
+      if (
+        Object.keys(voteCounts).length === assignedUser.committee.members.length
+      ) {
+        const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
+          voteCounts[a] > voteCounts[b] ? a : b
+        );
+        await handleMajorityDecision(
+          workflow,
+          userId,
+          majorityDecision,
+          currentStageIndex,
+          res
+        );
         return;
       }
     } else {
@@ -670,7 +783,8 @@ export const moveStageBackward = async (req, res) => {
           { $set: { "workflows.$.isActive": false } }
         );
 
-        const prevAssignedUser = workflow.assignedUsers[workflow.currentStageIndex];
+        const prevAssignedUser =
+          workflow.assignedUsers[workflow.currentStageIndex];
         const prevUserId = prevAssignedUser.user || prevAssignedUser.committee;
 
         await UserWorkflow.updateOne(
@@ -678,14 +792,31 @@ export const moveStageBackward = async (req, res) => {
           { $set: { "workflows.$.isActive": true } }
         );
 
-        if (prevAssignedUser.userType === 'Committee') {
-          const prevCommittee = await Committee.findById(prevUserId).populate('members');
+        if (prevAssignedUser.userType === "Committee") {
+          const prevCommittee = await Committee.findById(prevUserId).populate(
+            "members"
+          );
           for (const member of prevCommittee.members) {
-            await sendNotification(member._id, userId, `Workflow ${workflow.workflowName} was reverted back to your stage as part of the committee ${prevCommittee.name}.`, workflowId);
+            await sendNotification(
+              member._id,
+              userId,
+              `Workflow ${workflow.workflowName} was reverted back to your stage as part of the committee ${prevCommittee.name}.`,
+              workflowId
+            );
           }
-          await sendNotification(prevCommittee.chairperson, userId, `Workflow ${workflow.workflowName} was reverted back to your stage as the chairperson of committee ${prevCommittee.name}.`, workflowId);
+          await sendNotification(
+            prevCommittee.chairperson,
+            userId,
+            `Workflow ${workflow.workflowName} was reverted back to your stage as the chairperson of committee ${prevCommittee.name}.`,
+            workflowId
+          );
         } else {
-          await sendNotification(prevUserId, userId, `Workflow ${workflow.workflowName} was reverted back to your stage.`, workflowId);
+          await sendNotification(
+            prevUserId,
+            userId,
+            `Workflow ${workflow.workflowName} was reverted back to your stage.`,
+            workflowId
+          );
         }
       }
     }
@@ -723,12 +854,14 @@ export const approveWorkflow = async (req, res) => {
     if (committee) {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.committee.toString() === committee._id.toString() && user.stageIndex === currentStageIndex
+          user.committee.toString() === committee._id.toString() &&
+          user.stageIndex === currentStageIndex
       );
     } else {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.user.toString() === userId && user.stageIndex === currentStageIndex
+          user.user.toString() === userId &&
+          user.stageIndex === currentStageIndex
       );
     }
 
@@ -746,36 +879,53 @@ export const approveWorkflow = async (req, res) => {
         toUser: workflow.user,
         comment: comment,
         decision: "Approved",
-        visibleTo: [userId?.toString(), workflow.user._id.toString()].filter(Boolean),
+        visibleTo: [userId?.toString(), workflow.user._id.toString()].filter(
+          Boolean
+        ),
       };
 
       // If the user is part of a committee, add the committee name to the comment
       if (committee) {
         commentObj.memberOf = committee._id;
-        commentObj.visibleTo.push(...committee.members.map(member => member._id.toString()));
+        commentObj.visibleTo.push(
+          ...committee.members.map((member) => member._id.toString())
+        );
       }
 
       workflow.comments.push(commentObj);
     }
 
-    if (assignedUser.userType === 'Committee') {
+    if (assignedUser.userType === "Committee") {
       workflow.votes.push({
         stageIndex: currentStageIndex,
         committeeId: assignedUser.committee,
         memberId: userId,
-        decision: 'approve'
+        decision: "approve",
       });
 
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
       if (Object.keys(voteCounts).length === committee.members.length) {
-        const majorityDecision = Object.keys(voteCounts).reduce((a, b) => voteCounts[a] > voteCounts[b] ? a : b);
-        await handleMajorityDecision(workflow, userId, majorityDecision, currentStageIndex, res);
+        const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
+          voteCounts[a] > voteCounts[b] ? a : b
+        );
+        await handleMajorityDecision(
+          workflow,
+          userId,
+          majorityDecision,
+          currentStageIndex,
+          res
+        );
         return;
       }
     } else {
       workflow.status = "Approved";
       await workflow.save();
-      await sendNotification(workflow.user, userId, `Workflow ${workflow.workflowName} was approved.`, workflowId);
+      await sendNotification(
+        workflow.user,
+        userId,
+        `Workflow ${workflow.workflowName} was approved.`,
+        workflowId
+      );
       return res.status(200).json({ workflow });
     }
   } catch (error) {
@@ -783,7 +933,6 @@ export const approveWorkflow = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 export const rejectWorkflow = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
@@ -810,12 +959,14 @@ export const rejectWorkflow = async (req, res) => {
     if (committee) {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.committee.toString() === committee._id.toString() && user.stageIndex === currentStageIndex
+          user.committee.toString() === committee._id.toString() &&
+          user.stageIndex === currentStageIndex
       );
     } else {
       assignedUser = workflow.assignedUsers.find(
         (user) =>
-          user.user.toString() === userId && user.stageIndex === currentStageIndex
+          user.user.toString() === userId &&
+          user.stageIndex === currentStageIndex
       );
     }
 
@@ -833,37 +984,53 @@ export const rejectWorkflow = async (req, res) => {
         toUser: workflow.user,
         comment: comment,
         decision: "Rejected",
-        visibleTo: [userId?.toString(), workflow.user._id.toString()].filter(Boolean),
+        visibleTo: [userId?.toString(), workflow.user._id.toString()].filter(
+          Boolean
+        ),
       };
 
       // If the user is part of a committee, add the committee name to the comment
       if (committee) {
         commentObj.memberOf = committee._id;
-        commentObj.visibleTo.push(...committee.members.map(member => member._id.toString()));
+        commentObj.visibleTo.push(
+          ...committee.members.map((member) => member._id.toString())
+        );
       }
 
       workflow.comments.push(commentObj);
     }
 
-
-    if (assignedUser.userType === 'Committee') {
+    if (assignedUser.userType === "Committee") {
       workflow.votes.push({
         stageIndex: currentStageIndex,
         committeeId: assignedUser.committee,
         memberId: userId,
-        decision: 'reject'
+        decision: "reject",
       });
 
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
       if (Object.keys(voteCounts).length === committee.members.length) {
-        const majorityDecision = Object.keys(voteCounts).reduce((a, b) => voteCounts[a] > voteCounts[b] ? a : b);
-        await handleMajorityDecision(workflow, userId, majorityDecision, currentStageIndex, res);
+        const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
+          voteCounts[a] > voteCounts[b] ? a : b
+        );
+        await handleMajorityDecision(
+          workflow,
+          userId,
+          majorityDecision,
+          currentStageIndex,
+          res
+        );
         return;
       }
     } else {
       workflow.status = "Rejected";
       await workflow.save();
-      await sendNotification(workflow.user, userId, `Workflow ${workflow.workflowName} was rejected.`, workflowId);
+      await sendNotification(
+        workflow.user,
+        userId,
+        `Workflow ${workflow.workflowName} was rejected.`,
+        workflowId
+      );
       return res.status(200).json({ workflow });
     }
   } catch (error) {
@@ -871,7 +1038,6 @@ export const rejectWorkflow = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 export const getWorkflowDetails = async (req, res) => {
   const { workflowId, userId } = req.params;
@@ -942,23 +1108,27 @@ export const getWorkflowDetails = async (req, res) => {
     //   tbrb = "Committee";
     // } else {
 
-      // Check if user is assigned to the workflow and active in the current stage
-      
-      const assignedUser = workflow.assignedUsers.find(user => user.user && user.user.toString() === userId);
-      const isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
-      tbrb = "Single Person";
+    // Check if user is assigned to the workflow and active in the current stage
+
+    const assignedUser = workflow.assignedUsers.find(
+      (user) => user.user && user.user.toString() === userId
+    );
+    const isActiveUser =
+      assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+    tbrb = "Single Person";
     // }
-
-
 
     // Check user permissions and determine button visibility
     const isOwner = workflow.user.toString() === userId;
     const currentStageIndex = workflow.currentStageIndex;
     const canMoveForward =
-      isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1 || true;
-    const canMoveBackward = isActiveUser && currentStageIndex > 0 || true;
+      (isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1) ||
+      true;
+    const canMoveBackward = (isActiveUser && currentStageIndex > 0) || true;
     const canApprove =
-      isActiveUser && currentStageIndex === workflow.assignedUsers.length - 1 || true;
+      (isActiveUser &&
+        currentStageIndex === workflow.assignedUsers.length - 1) ||
+      true;
     const isActive = isActiveUser;
     const canEdit = isOwner && currentStageIndex == -1;
 
@@ -966,8 +1136,8 @@ export const getWorkflowDetails = async (req, res) => {
     const comments = isOwner
       ? workflow.comments
       : workflow.comments.filter((comment) =>
-        comment.visibleTo.some((user) => user._id.toString() === userId)
-      );
+          comment.visibleTo.some((user) => user._id.toString() === userId)
+        );
 
     // Get the current stage user or committee name
     let currentStageUserOrCommitteeName = "";
@@ -1183,6 +1353,172 @@ export const filterWorkflows = async (req, res) => {
   }
 };
 
+// Route to archive a workflow
+export const archiveWorkflow = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const workflow = await Workflow.findById(id);
+
+    if (!workflow) {
+      return res.status(404).json({ message: "Workflow not found" });
+    }
+
+    workflow.isArchived = true;
+    workflow.archivedAt = new Date();
+
+    await workflow.save();
+
+    return res
+      .status(200)
+      .json({ message: "Workflow archived successfully", workflow });
+  } catch (err) {
+    console.error("Error archiving workflow:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Route to unarchive a workflow
+export const unarchiveWorkflow = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const workflow = await Workflow.findById(id);
+
+    if (!workflow) {
+      return res.status(404).json({ message: "Workflow not found" });
+    }
+
+    workflow.isArchived = false;
+    workflow.archivedAt = null;
+
+    await workflow.save();
+
+    return res
+      .status(200)
+      .json({ message: "Workflow unarchived successfully", workflow });
+  } catch (err) {
+    console.error("Error unarchiving workflow:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Route to delete archived workflows
+export const deleteArchivedWorkflows = async (req, res) => {
+  try {
+    const archivedWorkflows = await Workflow.find({ isArchived: true });
+
+    if (!archivedWorkflows.length) {
+      return res.status(404).json({ message: "No archived workflows found" });
+    }
+
+    await Workflow.deleteMany({ isArchived: true });
+
+    return res
+      .status(200)
+      .json({ message: "Archived workflows deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting archived workflows:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Get Archived Workflows Endpoint
+export const getArchivedWorkflows = async (req, res) => {
+  try {
+    const archivedWorkflows = await Workflow.find({ isArchived: true });
+    res.status(200).json({ archivedWorkflows });
+  } catch (err) {
+    console.error("Error fetching archived workflows:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Delete Expired Workflows Function
+export const deleteExpiredWorkflows = async () => {
+  try {
+    const now = new Date();
+    await Workflow.deleteMany({ isArchived: true, deleteAfter: { $lt: now } });
+    console.log("Expired workflows deleted successfully");
+  } catch (err) {
+    console.error("Error deleting expired workflows:", err);
+  }
+};
+
+export async function saveAsDraft(req, res) {
+  const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
+
+  if (!reqDoc || reqDoc.length === 0) {
+    return res.status(400).json({ message: "No data provided" });
+  }
+
+  try {
+    const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
+    if (!workflowTemplate) {
+      return res.status(404).json({ message: "Workflow template not found" });
+    }
+
+    // Extract stage information
+    const stages = workflowTemplate.stages;
+
+    // Assign users to stages based on conditions or without conditions
+    const assignedUsers = [];
+    for (const [index, stage] of stages.entries()) {
+      let assignedUser;
+      if (stage.hasCondition) {
+        // Evaluate condition and select appropriate user(s)
+        assignedUser = await WorkflowService.assignUserWithCondition(stage, reqDoc);
+      } else {
+        // Select user with least workload for the role
+        assignedUser = await WorkflowService.assignUserWithoutCondition(stage);
+      }
+      const committee = await Committee.findById(assignedUser);
+      if (committee) {
+        const userType = "Committee";
+        assignedUsers.push({
+          userType: userType,
+          committee: assignedUser,
+          stageIndex: index,
+        });
+      } else {
+        const userType = "User";
+        assignedUsers.push({
+          userType: userType,
+          user: assignedUser,
+          stageIndex: index,
+        });
+      }
+    }
+
+    // Create a new workflow instance
+    const newWorkflow = new Workflow({
+      name: workflowName,
+      workflowTemplate: workflowTemplateId,
+      user: userId,
+      assignedUsers,
+      isDraft: true,
+    });
+
+    // Generate PDF from document data
+    const generatedDocuments = await handleData(reqDoc, addDoc);
+    if (generatedDocuments.status !== 200) {
+      return res.status(generatedDocuments.status).json(generatedDocuments.body);
+    }
+
+    const requiredDocuments = generatedDocuments.body.reqDocIds;
+    const additionalDocuments = generatedDocuments.body.addDocIds;
+
+    newWorkflow.requiredDocuments = requiredDocuments;
+    newWorkflow.additionalDocuments = additionalDocuments;
+
+    // Save workflow instance
+    const savedWorkflow = await newWorkflow.save();
+
+    return res.status(201).json({ workflow: savedWorkflow });
+  } catch (error) {
+    console.error("Error saving workflow as draft:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 export default {
   searchWorkflowsByName,
   createWorkflow,
@@ -1190,4 +1526,11 @@ export default {
   getAllWorkflows,
   getWorkflowById,
   getAllRequiredDocuments,
+  archiveWorkflow,
+  unarchiveWorkflow,
+  deleteArchivedWorkflows,
+  getArchivedWorkflows,
+  deleteExpiredWorkflows,
+  cancelWorkflow,
+  saveAsDraft
 };

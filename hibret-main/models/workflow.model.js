@@ -16,6 +16,17 @@ const WorkflowSchema = new Schema(
       type: Number,
       // required: true,
     },
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: {
+      type: Date,
+    },
+    deleteAfter: {
+      type: Date,
+  
+    },
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
