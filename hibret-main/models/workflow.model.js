@@ -42,6 +42,9 @@ const WorkflowSchema = new Schema(
     enum: ["Pending", "Approved", "Rejected", "Cancelled"],
     default: "Pending",
   },
+  cancellationReason: {
+    type: String,
+  },
   assignedUsers: [
     {
       stageIndex: Number,
@@ -103,6 +106,7 @@ const WorkflowSchema = new Schema(
         type: String,
         enum: ['approve', 'reject', 'forward', 'backward']
       },
+      
     },
   ],
 },

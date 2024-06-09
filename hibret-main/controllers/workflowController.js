@@ -478,11 +478,12 @@ export async function deleteWorkflow(req, res) {
     console.error("Error deleting workflow:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
-};
+}
 
 // Cancel Workflow Function
 export const cancelWorkflow = async (req, res) => {
   const { id } = req.params;
+  const { reason } = req.body;
 
   try {
     // Check if the workflow exists
@@ -491,11 +492,18 @@ export const cancelWorkflow = async (req, res) => {
       return res.status(404).json({ message: "Workflow not found" });
     }
 
-    // Update the status of the workflow to "Cancelled"
+    // Update the status of the workflow to "Cancelled" and add the reason
     existingWorkflow.status = "Cancelled";
+    existingWorkflow.cancellationReason = reason;
 
     // Save the updated workflow
     const updatedWorkflow = await existingWorkflow.save();
+
+    // Remove the workflow from user workflows
+    await UserWorkflow.updateMany(
+      { "workflows.workflowId": id },
+      { $pull: { workflows: { workflowId: id } } }
+    );
 
     return res.status(200).json(updatedWorkflow);
   } catch (error) {
@@ -503,8 +511,6 @@ export const cancelWorkflow = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
-
 
 export const moveStageForward = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
@@ -1363,6 +1369,12 @@ export const archiveWorkflow = async (req, res) => {
       return res.status(404).json({ message: "Workflow not found" });
     }
 
+    // Check if the workflow status is "Pending"
+    if (workflow.status === "Pending") {
+      return res
+        .status(400)
+        .json({ message: "Cannot archive a pending workflow" });
+    }
     workflow.isArchived = true;
     workflow.archivedAt = new Date();
 
@@ -1451,7 +1463,9 @@ export async function saveAsDraft(req, res) {
   }
 
   try {
-    const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
+    const workflowTemplate = await WorkflowTemplate.findById(
+      workflowTemplateId
+    );
     if (!workflowTemplate) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
@@ -1465,7 +1479,10 @@ export async function saveAsDraft(req, res) {
       let assignedUser;
       if (stage.hasCondition) {
         // Evaluate condition and select appropriate user(s)
-        assignedUser = await WorkflowService.assignUserWithCondition(stage, reqDoc);
+        assignedUser = await WorkflowService.assignUserWithCondition(
+          stage,
+          reqDoc
+        );
       } else {
         // Select user with least workload for the role
         assignedUser = await WorkflowService.assignUserWithoutCondition(stage);
@@ -1500,7 +1517,9 @@ export async function saveAsDraft(req, res) {
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
     if (generatedDocuments.status !== 200) {
-      return res.status(generatedDocuments.status).json(generatedDocuments.body);
+      return res
+        .status(generatedDocuments.status)
+        .json(generatedDocuments.body);
     }
 
     const requiredDocuments = generatedDocuments.body.reqDocIds;
@@ -1532,5 +1551,5 @@ export default {
   getArchivedWorkflows,
   deleteExpiredWorkflows,
   cancelWorkflow,
-  saveAsDraft
+  saveAsDraft,
 };
