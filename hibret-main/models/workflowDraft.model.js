@@ -1,3 +1,5 @@
+import { Schema, model } from "mongoose";
+
 const DraftWorkflowSchema = new Schema(
   {
     name: {
@@ -115,3 +117,5 @@ const DraftWorkflowSchema = new Schema(
 );
 
 const DraftWorkflow = model("DraftWorkflow", DraftWorkflowSchema);
+
+export default DraftWorkflow;

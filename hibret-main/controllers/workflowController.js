@@ -6,15 +6,15 @@ import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
 import Committee from "../models/committee.model.js";
 import Folder from "../models/folder.model.js";
+import DraftWorkflow from '../models/workflowDraft.model.js'
 import { sendNotification } from "./notification.js";
-import { io } from "../server.js";
 import mongoose from "mongoose";
 import {
   handleMajorityDecision,
   aggregateVotes,
 } from "../services/workflowHelp.js";
 import * as WorkflowService from "../services/workflowService.js";
-const { ObjectId } = mongoose.Types;
+
 
 export async function createWorkflow(req, res) {
   // const documentData = JSON.parse(req.body.documentData);
@@ -511,6 +511,7 @@ export const cancelWorkflow = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 export const moveStageForward = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
@@ -1506,7 +1507,7 @@ export async function saveAsDraft(req, res) {
     }
 
     // Create a new workflow instance
-    const newWorkflow = new Workflow({
+    const newWorkflow = new DraftWorkflow({
       name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
