@@ -8,7 +8,7 @@ import Committee from "../models/committee.model.js";
 import Folder from "../models/folder.model.js";
 import DraftWorkflow from '../models/workflowDraft.model.js'
 import { sendNotification } from "./notification.js";
-import mongoose from "mongoose";
+
 import {
   handleMajorityDecision,
   aggregateVotes,
@@ -193,7 +193,7 @@ export async function createWorkflow(req, res) {
         .status(404)
         .json({ message: "Department Repository not found" });
     }
-
+    console.log(rootFolder)
     // Traverse the folder hierarchy
     let categoryFolder = await Folder.findOne({
       parentFolder: rootFolder._id,
