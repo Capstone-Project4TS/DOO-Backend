@@ -1,7 +1,7 @@
 import Folder from "../models/folder.model.js";
 import UserModel from "../models/users.model.js";
 import Workflow from "../models/workflow.model.js";
-
+import UserWorkflow from "../models/userWorkflow.model.js";
 // Helper function to create folders and subfolders recursively
 export const createFolderHierarchy = async (parentFolderId, year) => {
   const yearFolder = new Folder({
@@ -48,44 +48,69 @@ export const createFolderHierarchy = async (parentFolderId, year) => {
 };
 
 export const getFolderHierarchy = async (folderId) => {
-  const folder = await Folder.findById(folderId).populate('workflows.workflowId');
+  const folder = await Folder.findById(folderId).populate(
+    "workflows.workflowId"
+  );
 
   if (!folder) return null;
 
   const children = await Promise.all(
-    folder.folders.map(async (subFolder) => await getFolderHierarchy(subFolder._id))
+    folder.folders.map(
+      async (subFolder) => await getFolderHierarchy(subFolder._id)
+    )
   );
 
   const getWorkflowDetails = async (workflow) => {
     const workflowDoc = await Workflow.findById(workflow.workflowId)
-      .populate('requiredDocuments')
-      .populate('additionalDocuments');
+      .populate("requiredDocuments")
+      .populate("additionalDocuments")
+      .populate("user", "name"); // Populate user with name
+
     console.log("Fetched Workflow:", workflowDoc);
 
     if (!workflowDoc) return null;
 
-    const documentNames = [
-      ...workflowDoc.requiredDocuments.map(doc => doc.title),
-      ...workflowDoc.additionalDocuments.map(doc => doc.title)
-    ];
+    // Retrieve the required document IDs and names
+    const requiredDocuments = workflowDoc.requiredDocuments.map((doc) => ({
+      _id: doc._id,
+      title: doc.title,
+    }));
+
+    // Retrieve the additional document IDs and names
+    const additionalDocuments = workflowDoc.additionalDocuments.map((doc) => ({
+      _id: doc._id,
+      title: doc.title,
+    }));
+
+    // Retrieve user IDs associated with the workflow
+    const userWorkflows = await UserWorkflow.find({
+      "workflows.workflowId": workflow.workflowId,
+    });
+    const userIds = userWorkflows.map((userWorkflow) => userWorkflow.userId);
 
     return {
+      workflowId: workflowDoc._id,
       workflowName: workflowDoc.name,
-      documentNames,
+      userId: workflowDoc.user._id, // Include user ID
+      requiredDocuments,
+      additionalDocuments,
+      userIds,
     };
   };
 
   let workflowDetails = [];
   if (folder.workflows && folder.workflows.length > 0) {
     workflowDetails = await Promise.all(
-      folder.workflows.map(async (workflow) => await getWorkflowDetails(workflow))
+      folder.workflows.map(
+        async (workflow) => await getWorkflowDetails(workflow)
+      )
     );
   }
 
   return {
     name: folder.name,
-    workflows: workflowDetails.filter(workflow => workflow !== null),
-    children: children.filter(child => child !== null),
+    workflows: workflowDetails.filter((workflow) => workflow !== null),
+    children: children.filter((child) => child !== null),
   };
 };
 
@@ -105,28 +130,28 @@ export const deleteFolderHierarchy = async (folderId) => {
 };
 
 export const findWorkflowsInFolderHierarchy = async (folderId) => {
-    const folder = await Folder.findById(folderId).populate('folders');
-    if (!folder) return false;
-  
-    // Check for workflows in the current folder
-    if (folder.workflows && folder.workflows.length > 0) {
+  const folder = await Folder.findById(folderId).populate("folders");
+  if (!folder) return false;
+
+  // Check for workflows in the current folder
+  if (folder.workflows && folder.workflows.length > 0) {
+    return true;
+  }
+
+  // Recursively check for workflows in subfolders
+  for (const subFolder of folder.folders) {
+    const workflowsFound = await findWorkflowsInFolderHierarchy(subFolder._id);
+    if (workflowsFound) {
       return true;
     }
-  
-    // Recursively check for workflows in subfolders
-    for (const subFolder of folder.folders) {
-      const workflowsFound = await findWorkflowsInFolderHierarchy(subFolder._id);
-      if (workflowsFound) {
-        return true;
-      }
-    }
-  
-    return false;
-  };
-
-  export default{
-    createFolderHierarchy,
-    deleteFolderHierarchy,
-    findWorkflowsInFolderHierarchy,
-    getFolderHierarchy
   }
+
+  return false;
+};
+
+export default {
+  createFolderHierarchy,
+  deleteFolderHierarchy,
+  findWorkflowsInFolderHierarchy,
+  getFolderHierarchy,
+};
