@@ -18,11 +18,10 @@ export const sendInvitation = async (email, username, password) => {
     subject: "Log into your Account by using this password",
     html: `<p>Hello ${username},</p>
            <p>Your default password is: <strong>${password}</strong></p>
-           <p>Please verify your email by clicking this link: <a href="${process.env.CLIENT_URL}/login">http://${process.env.CLIENT_URL}/account/confirm</a></p>`,
+           <p>Please verify your code by clicking this link: <a href="${process.env.CLIENT_URL}/login">${process.env.CLIENT_URL}/login</a></p>`,
   };
   return mailOptions;
-};
-
+}
 export const sendPasswordResetCode = async (email, username, otp) => {
   const mailOptions = {
     from: '"DMS Hibret Bank" < sitra234@outlook.com> ',
@@ -30,7 +29,7 @@ export const sendPasswordResetCode = async (email, username, otp) => {
     subject: "Here is the reset code verify it!",
     html: `<p>Hello ${username},</p>
          <p>Your reset code is: <strong>${otp}</strong></p>
-         <p>Please verify your code by clicking this link: <a href="${process.env.CLIENT_URL}/">http://${process.env.CLIENT_URL}/account/confirm</a></p>`,
+         <p>Please verify your code by clicking this link: <a href="${process.env.CLIENT_URL}/otp">${process.env.CLIENT_URL}/otp</a></p>`,
   };
   return mailOptions;
 };
@@ -45,3 +44,4 @@ export const sendEmail = async (email) => {
     throw error;
   }
 };
+
