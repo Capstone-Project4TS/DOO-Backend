@@ -148,10 +148,11 @@ export async function getDocumentTemplateById(req, res) {
       (dep) => dep._id.toString() === template.depId.toString()
     );
 
+    
     // Sanitize the document template to include necessary details only
     const documentTemplateDetail = {
       _id: template._id,
-      title: template.title,
+      title: `${template.title} V${template.version}`,
       department: department ? department.name : null,
       category: template.categoryId ? template.categoryId.name : null,
       subCategory: template.subCategoryId ? template.subCategoryId.name : null,
@@ -456,6 +457,122 @@ async function createIndexes() {
 // Call the function to create indexes
 createIndexes();
 
+
+// Route to archive a document template
+export const archiveDocumentTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const template = await DocumentTemplate.findById(id);
+
+    if (!template) {
+      return res.status(404).json({ message: 'Document template not found' });
+    }
+
+    template.isArchived = true;
+    template.archivedAt = new Date();
+
+    // Set deletion date, e.g., 60 days from now
+    const DELETE_AFTER_DAYS = 30;
+    const deletionDate = new Date();
+    deletionDate.setDate(deletionDate.getDate() + DELETE_AFTER_DAYS);
+    template.deleteAfter = deletionDate;
+
+    await template.save();
+
+    return res.status(200).json({ message: 'Document template archived successfully', template });
+  } catch (err) {
+    console.error('Error archiving document template:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Route to retrieve all archived document templates
+export const getArchivedDocumentTemplates = async (req, res) => {
+  try {
+    // Find all archived document templates
+    const templates = await DocumentTemplate.find({ isArchived: true })
+      .select('_id title createdAt updatedAt');
+
+    if (!templates.length) {
+      return res.status(404).json({ message: 'No archived document templates found' });
+    }
+
+    return res.status(200).json({ templates });
+  } catch (err) {
+    console.error('Error fetching archived document templates:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Route to delete an archived document template
+export const deleteArchivedDocumentTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const template = await DocumentTemplate.findById(id);
+
+    if (!template) {
+      return res.status(404).json({ message: 'Document template not found' });
+    }
+
+    if (!template.isArchived) {
+      return res.status(400).json({ message: 'Document template is not archived' });
+    }
+
+    await DocumentTemplate.findByIdAndDelete(id);
+
+    return res.status(200).json({ message: 'Archived document template deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting archived document template:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Route to unarchive a document template
+export const unarchiveDocumentTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const template = await DocumentTemplate.findById(id);
+
+    if (!template) {
+      return res.status(404).json({ message: 'Document template not found' });
+    }
+
+    if (!template.isArchived) {
+      return res.status(400).json({ message: 'Document template is not archived' });
+    }
+
+    template.isArchived = false;
+    template.archivedAt = null;
+    template.deleteAfter = null;
+
+    await template.save();
+
+    return res.status(200).json({ message: 'Document template unarchived successfully', template });
+  } catch (err) {
+    console.error('Error unarchiving document template:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Route to delete expired document templates
+export const deleteExpiredDocumentTemplates = async () => {
+  try {
+    const now = new Date();
+    const expiredTemplates = await DocumentTemplate.find({ deleteAfter: { $lte: now } });
+
+    if (!expiredTemplates.length) {
+      return { message: 'No expired document templates found' };
+    }
+
+    await DocumentTemplate.deleteMany({ deleteAfter: { $lte: now } });
+
+    return { message: 'Expired document templates deleted successfully' };
+  } catch (err) {
+    console.error('Error deleting expired document templates:', err);
+    return { message: 'Internal server error' };
+  }
+};
+
 export default {
   createDocumentTemplate,
   getAllDocumentTemplates,
@@ -466,4 +583,9 @@ export default {
   getConditionsByTemp,
   searchDocumentTemplatesByTitle,
   filterDocumentTemplates,
+  archiveDocumentTemplate,
+  getArchivedDocumentTemplates,
+  deleteArchivedDocumentTemplate,
+  unarchiveDocumentTemplate,
+  deleteExpiredDocumentTemplates
 };

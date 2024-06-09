@@ -2,7 +2,9 @@ import cron from "node-cron";
 import { updateUserStatus } from "../services/userService.js";
 import { createAccounts } from "../controllers/userController.js";
 import { updateAllRoles } from "../controllers/roleController.js";
-
+import { deleteExpiredArchivedTemplates} from '../controllers/workflowTemplateController.js'
+import {deleteExpiredDocumentTemplates} from '../controllers/documentTemplateController.js'
+import {deleteExpiredWorkflows} from '../controllers/workflowController.js'
 const schedules = [
   "0 0 * * *", // Runs at midnight
   "0 12 * * *", // Runs at noon
@@ -60,7 +62,11 @@ export default function startCronJob() {
           }
         } catch (error) {
           console.error("Unexpected error occurred:", error);
-        }
+        };
+
+        await deleteExpiredArchivedTemplates();
+        await deleteExpiredDocumentTemplates();
+        await  deleteExpiredWorkflows();
         console.log("Scheduled task complete.");
       } catch (error) {
         console.error("Error running scheduled task:", error);

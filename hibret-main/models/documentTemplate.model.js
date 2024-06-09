@@ -15,6 +15,18 @@ const documentTemplateSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  isArchived: {
+    type: Boolean,
+    default: false,
+  },
+  archivedAt: {
+    type: Date,
+    default: null,
+  },
+  deleteAfter: {
+    type: Date,
+    default: null,
+  },
   categoryId: {
     type: Schema.Types.ObjectId,
     ref: "Category",

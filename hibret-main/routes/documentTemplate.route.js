@@ -10,7 +10,11 @@ import {
   deleteDocumentTemplate,
   getConditionsByTemp,
   filterDocumentTemplates,
-  searchDocumentTemplatesByTitle
+  searchDocumentTemplatesByTitle,
+  archiveDocumentTemplate,
+  unarchiveDocumentTemplate,
+  deleteArchivedDocumentTemplate,
+  getArchivedDocumentTemplates
 } from "../controllers/documentTemplateController.js";
 
 // Create a new document template (POST)
@@ -21,6 +25,9 @@ router.get("/documentTemplate", getAllDocumentTemplates);
 
 // Get a single document template by ID (GET)
 router.get("/documentTemplate/get/:id", getDocumentTemplateById);
+
+router.get("/documentTemplate/getArchived/:id", getArchivedDocumentTemplates);
+
 
 // Get all documents with a subcategory ID (GET)
 router.get("/documentTemplate/sub/:id", getDocumentBySub);
@@ -33,6 +40,10 @@ router.put("/documentTemplate/:id", updateDocumentTemplate);
 
 // Delete a document template (DELETE)
 router.delete("/documentTemplate/:id", deleteDocumentTemplate);
+router.delete("/documentTemplate/deleteArchived/:id", deleteArchivedDocumentTemplate);
+
+router.patch("/documentTemplate/archive:id", archiveDocumentTemplate);
+router.patch("/documentTemplate/unarchive:id", unarchiveDocumentTemplate);
 
 // Define the search by title endpoint
 router.get('/document-templates/search', searchDocumentTemplatesByTitle);
