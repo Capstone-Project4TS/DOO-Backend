@@ -227,7 +227,6 @@ export async function getAllRolesByDepId(req, res) {
 }
 
 
-
 // Controller function to create a committee
 export async function createCommittee(req, res) {
   const { name, members, chairperson } = req.body;
