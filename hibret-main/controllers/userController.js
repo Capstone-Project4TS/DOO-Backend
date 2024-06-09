@@ -9,7 +9,7 @@ import * as UserService from "../services/userService.js";
 import otpGenerator from "otp-generator";
 import RoleModel from '../models/role.model.js';
 
-const OTP_EXPIRATION_TIME = 5 * 60 * 1000; // OTP expiration time in milliseconds (e.g., 5 minutes)
+const OTP_EXPIRATION_TIME = 2 * 60 * 1000; // OTP expiration time in milliseconds (e.g., 5 minutes)
 
 // Admin role ID for comparison
 const ADMIN_ROLE_ID = new mongoose.Types.ObjectId("66374bd0fdfae8633a05d11e");

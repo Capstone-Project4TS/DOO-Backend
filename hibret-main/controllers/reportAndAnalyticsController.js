@@ -5,8 +5,7 @@ import WorkflowTemplate from '../models/workflowTemplate.model.js';
 import DocumentTemplate from '../models/documentTemplate.model.js';
 import UserWorkflow from '../models/userWorkflow.model.js'
 import Role from '../models/role.model.js';
-import Department from '../models/department.model.js';
-
+import { getDeps } from './roleController.js';
 export async function getAdminDashboard(req, res) {
   try {
     const activeUsers = await User.aggregate([
@@ -43,6 +42,9 @@ export async function getAdminDashboard(req, res) {
       },
     ]);
 
+      // Fetch department names
+      const deps = await getDeps();
+
      // Count roles found in different departments
      const rolesByDepartment = await Role.aggregate([
       {
@@ -50,34 +52,24 @@ export async function getAdminDashboard(req, res) {
           _id: '$depId',
           rolesCount: { $sum: 1 } // Count the number of roles within each department
         }
-      },
-      {
-        $lookup: {
-          from: 'departments', // Collection name
-          localField: '_id',
-          foreignField: '_id',
-          as: 'department'
-        }
-      },
-      {
-        $addFields: {
-          departmentName: { $arrayElemAt: ['$department.name', 0] }
-        }
-      },
-      {
-        $project: {
-          departmentName: { $arrayElemAt: ["$department.name", 0] }, // Extract department name from the department document
-      rolesCount: 1 // Include the roles count
-        }
       }
     ]);
+
+    // Add department names to the rolesByDepartment result
+    const rolesWithDepartmentNames = rolesByDepartment.map(role => {
+      const department = deps.find(dep => dep._id.toString() === role._id.toString());
+      return {
+       
+        departmentName: department ? department.name : 'Unknown Department',
+        rolesCount: role.rolesCount,
+      };
+    });
 
     const workflowTemplateCount = await WorkflowTemplate.countDocuments({});
     const documentTemplateCount = await DocumentTemplate.countDocuments({});
 
     const response = {
       activeUsers: activeUsers.map(item => ({
-        month: `${item._id.year}-${item._id.month}`,
         count: item.count,
       })),
       workflowStatusCounts: workflowStatusCounts.map(item => ({
@@ -86,14 +78,14 @@ export async function getAdminDashboard(req, res) {
       })),
       workflowTemplateCount,
       documentTemplateCount,
-      rolesByDepartment,
+      rolesByDepartment: rolesWithDepartmentNames,
     };
-
     res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching admin dashboard data:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+
 }
 
 export async function getAdminReport(req, res) {
