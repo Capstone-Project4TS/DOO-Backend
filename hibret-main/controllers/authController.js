@@ -14,10 +14,10 @@ export async function verifyUser(req, res, next) {
 
     // check the user existance
     let exist = await UserModel.findOne({ email });
-    if (!exist) return res.status(404).send({ error: "Can't find User!" });
+    if (!exist) return res.status(404).send({ message: "Can't find User!" });
     next();
   } catch (error) {
-    return res.status(404).send({ error: "Authentication Error" });
+    return res.status(404).send({ message: "Authentication Error" });
   }
 }
 
@@ -38,25 +38,25 @@ export async function login(req, res) {
       return res
         .status(401)
         .send({
-          error: `Account locked due to too many failed login attempts. Please try again in ${timeUntilUnlock} seconds.`,
+          message: `Account locked due to too many failed login attempts. Please try again in ${timeUntilUnlock} seconds.`,
         });
     }
     if (user.activationStatus == "Deactivated") {
       return res
         .status(401)
         .send({
-          error: `Currently your account is locked.Please contact the Admin`,
+          message: `Currently your account is locked.Please contact the Admin`,
         });
     }
     if (!user) {
-      return res.status(404).send({ error: "Invalid email or password." });
+      return res.status(404).send({ message: "Invalid email or password." });
     }
 
     // Compare passwords
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
-      return res.status(400).send({ error: "Invalid email or password." });
+      return res.status(400).send({ message: "Invalid email or password." });
     }
 
     // Retrieve role information associated with the user
