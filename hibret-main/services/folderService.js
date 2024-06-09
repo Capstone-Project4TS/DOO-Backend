@@ -127,5 +127,6 @@ export const findWorkflowsInFolderHierarchy = async (folderId) => {
   export default{
     createFolderHierarchy,
     deleteFolderHierarchy,
-    findWorkflowsInFolderHierarchy
+    findWorkflowsInFolderHierarchy,
+    getFolderHierarchy
   }

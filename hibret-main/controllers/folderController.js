@@ -1,8 +1,6 @@
 import Folder from "../models/folder.model.js";
 import UserModel from "../models/users.model.js";
-import Workflow from "../models/workflow.model.js";
-
-
+import {getFolderHierarchy} from '../services/folderService.js'
 
 // Controller function to fetch repositories with folders and workflows
 export const fetchRepositories = async (req, res) => {
