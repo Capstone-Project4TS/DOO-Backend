@@ -123,7 +123,6 @@ export async function getAllUsers(req, res) {
   try {
      // Fetch all users
      const users = await UserModel.find({}).populate('role_id', 'roleName');
-    console.log(users)
      if (!users || users.length === 0) {
        return res.status(404).json({ message: "No users found" });
      }
