@@ -143,6 +143,8 @@ export const createWorkflowTemplate = async (req, res) => {
       additionalDoc,
       additionalDocumentTemplate,
       depId,
+      isArchived: false, // Initialize as not archived
+
     });
 
     const savedTemplate = await newTemplate.save();
@@ -172,7 +174,7 @@ export async function getAllWorkflowTemplates(req, res) {
   try {
     // Fetch workflow templates that are not deprecated
     const templates = await WorkflowTemplate.find({
-      isDeprecated: false,
+      isDeprecated: false,isArchived: false 
     })
       .populate({ path: "categoryId", select: "name" })
       .populate({ path: "subCategoryId", select: "name" });
@@ -248,13 +250,27 @@ export async function getWorkflowTemplateDetailById(req, res) {
 
     // Find the workflow template by ID and populate references
     const template = await WorkflowTemplate.findById(id)
-      .populate({ path: 'categoryId', select: 'name' })
-      .populate({ path: 'subCategoryId', select: 'name' })
-      .populate({ path: 'stages.committee_permissions.role_ids', select: 'name' })
-      .populate({ path: 'stages.single_permissions.role_id', select: 'roleName' })
-      .populate({ path: 'requiredDocumentTemplates', select: 'title' })
-      .populate({ path: 'additionalDocumentTemplate', select: 'title' });
-
+    .populate("requiredDocumentTemplates")
+    .populate("additionalDocumentTemplate")
+    .populate("categoryId", "name")
+    .populate("subCategoryId", "name")
+    .populate({
+      path: "stages.committee_permissions.role_ids",
+      select: "name",
+    })
+    .populate({
+      path: "stages.single_permissions.role_id",
+      select: "roleName",
+    })
+    .populate({
+      path: "stages.conditionVariants.committee_permissions.role_ids",
+      select: "name",
+    })
+    .populate({
+      path: "stages.conditionVariants.single_permissions.role_id",
+      select: "roleName",
+    });
+    
     if (!template) {
       return res.status(404).json({ message: 'Workflow template not found' });
     }
@@ -262,44 +278,66 @@ export async function getWorkflowTemplateDetailById(req, res) {
     // Fetch department names
     const deps = await getDeps();
 
+
     // Sanitize the workflow template to include necessary details only
     const workflowTemplateDetail = {
       _id: template._id,
-      name: template.name,
+      name: `${template.name} V${template.version}`,
       category: template.categoryId ? template.categoryId.name : null,
       subCategory: template.subCategoryId ? template.subCategoryId.name : null,
       department: deps.find(dep => dep._id.toString() === template.depId.toString())?.name || null,
       stages: template.stages.map(stage => ({
         title: stage.stageTitle,
+        hasCondition: stage.hasCondition,
+        condition: stage.condition,
         approverType: stage.approverType,
         committeePermissions: stage.committee_permissions ? {
           permission: stage.committee_permissions.permission,
           committee: stage.committee_permissions.role_ids ? stage.committee_permissions.role_ids.name : null,
-          minApprovals: stage.committee_permissions.min_approvals,
         } : null,
         singlePermissions: stage.single_permissions ? {
           role: stage.single_permissions.role_id ? stage.single_permissions.role_id.roleName : null,
           permission: stage.single_permissions.permission,
         } : null,
+        conditionVariants: stage.conditionVariants ? stage.conditionVariants.map(variant => ({
+          condition_name: variant.condition_name,
+          operator: variant.operator,
+          value: variant.value,
+          approverType: variant.approverType,
+          committeePermissions: variant.committee_permissions ? {
+            permission: variant.committee_permissions.permission,
+            committee: variant.committee_permissions.role_ids ? variant.committee_permissions.role_ids.name : null,
+          } : null,
+          singlePermissions: variant.single_permissions ? {
+            role: variant.single_permissions.role_id ? variant.single_permissions.role_id.roleName : null,
+            permission: variant.single_permissions.permission,
+          } : null,
+        })) : [],
       })),
-      requiredDocuments: template.requiredDocumentTemplates ? template.requiredDocumentTemplates.map(doc => doc.title) : [],
-      additionalDocument: template.additionalDocumentTemplate ? template.additionalDocumentTemplate.title : null,
-      createdAt: template.createdAt,
-      updatedAt: template.updatedAt,
+      additionalDoc: template.additionalDoc,
+      requiredDocuments: template.requiredDocumentTemplates ? template.requiredDocumentTemplates.map(doc => ({
+        _id: doc._id,
+        title: doc.title,
+      })) : [],
+      additionalDocument: template.additionalDocumentTemplate ? {
+        _id: template.additionalDocumentTemplate._id,
+        title: template.additionalDocumentTemplate.title,
+      } : null,
+    
     };
 
-    // Return the workflow template details
-    return res.status(200).json(workflowTemplateDetail);
+    // Send workflow template details as response
+    res.status(200).json(workflowTemplateDetail);
   } catch (err) {
-    console.error('Error fetching workflow template:', err);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching workflow template:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 }
 
 // Update a workflow template
 export async function updateWorkflowTemplate(req, res) {
   try {
-    const { stages, requiredDocumentTemplates, additionalDoc } = req.body;
+    const { stages, requiredDocumentTemplates,additionalDocument, additionalDoc } = req.body;
 
     // Input validation for required fields
     if (!stages || !requiredDocumentTemplates) {
@@ -326,12 +364,15 @@ export async function updateWorkflowTemplate(req, res) {
       name: latestTemplate.name,
       stages,
       requiredDocumentTemplates,
+      additionalDocumentTemplate: additionalDocument,
       version: newVersion,
       categoryId: latestTemplate.categoryId,
       subCategoryId: latestTemplate.subCategoryId,
       depId: latestTemplate.depId,
       additionalDoc: additionalDoc,
+
     });
+
 
     await newTemplate.save();
 
@@ -472,12 +513,133 @@ export const filterWorkflowTemplates = async (req, res) => {
   }
 };
 
+export const archiveWorkflowTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid workflow template ID" });
+    }
+
+    const template = await WorkflowTemplate.findById(id);
+    if (!template) {
+      return res.status(404).json({ message: "Workflow template not found" });
+    }
+    const DELETE_AFTER_DAYS = 60; // Example: Delete after 60 days
+    const now = new Date();
+    const deleteAfterDate = new Date(now);
+    deleteAfterDate.setDate(now.getDate() + DELETE_AFTER_DAYS); // Example: Delete after 60 days
+
+    // Archive the workflow template
+     template = await WorkflowTemplate.findByIdAndUpdate(
+      id,
+      { isArchived: true, archivedAt: now, deleteAfter: deleteAfterDate },
+      { new: true }
+    );
+
+    res.status(200).json({ message: "Workflow template archived successfully" });
+  } catch (err) {
+    console.error("Error archiving workflow template:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const unarchiveWorkflowTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid workflow template ID" });
+    }
+
+   // Unarchive the workflow template
+   const template = await WorkflowTemplate.findByIdAndUpdate(
+    id,
+    { isArchived: false, archivedAt: null, deleteAfter: null },
+    { new: true }
+  );
+
+  if (!template) {
+    return res.status(404).json({ message: 'Workflow template not found' });
+  }
+
+    res.status(200).json({ message: "Workflow template unarchived successfully" });
+  } catch (err) {
+    console.error("Error unarchiving workflow template:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+export const getArchivedWorkflowTemplates = async (req, res) => {
+  try {
+    const templates = await WorkflowTemplate.find({ isArchived: true })
+      .select('name version updatedAt'); // Selecting only necessary fields
+
+    if (templates.length === 0) {
+      return res.status(404).json({ message: 'No archived workflow templates found' });
+    }
+
+    return res.status(200).json({ templates });
+  } catch (err) {
+    console.error('Error fetching archived workflow templates:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+export const deleteArchivedWorkflowTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate the provided ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid workflow template ID' });
+    }
+
+    const template = await WorkflowTemplate.findOneAndDelete({ _id: id, isArchived: true });
+
+    if (!template) {
+      return res.status(404).json({ message: 'Archived workflow template not found' });
+    }
+
+    return res.status(200).json({ message: 'Archived workflow template deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting archived workflow template:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Function to delete expired archived templates
+export async function deleteExpiredArchivedTemplates() {
+  try {
+    // Find archived templates that should be deleted
+    const expiredTemplates = await WorkflowTemplate.find({
+      isArchived: true,
+      deleteAfter: { $lte: new Date() } // Find templates where deleteAfter is less than or equal to current time
+    });
+
+    // Delete the expired templates
+    for (const template of expiredTemplates) {
+      await WorkflowTemplate.findByIdAndDelete(template._id);
+      console.log(`Deleted archived workflow template ${template._id}`);
+    }
+  } catch (err) {
+    console.error('Error deleting expired archived workflow templates:', err);
+  }
+}
+
 export default {
   createWorkflowTemplate,
   getAllWorkflowTemplates,
   getWorkflowTemplateDetailById,
-  // updateWorkflowTemplate,
+  updateWorkflowTemplate,
   deleteWorkflowTemplate,
   searchWorkflowTemplatesByName,
   filterWorkflowTemplates,
+  archiveWorkflowTemplate,
+  unarchiveWorkflowTemplate,
+  getArchivedWorkflowTemplates,
+  deleteArchivedWorkflowTemplate,
+ deleteExpiredArchivedTemplates
 };

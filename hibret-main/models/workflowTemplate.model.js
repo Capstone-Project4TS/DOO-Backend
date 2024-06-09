@@ -16,6 +16,15 @@ const workflowTemplateSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isArchived: { type: Boolean, default: false }, // New field to indicate if the template is archived
+  archivedAt: {
+    type: Date,
+    default: null,
+  },
+  deleteAfter: {
+    type: Date,
+    default: null,
+  },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Category", // Reference to the Category model

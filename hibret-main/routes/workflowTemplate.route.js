@@ -8,15 +8,24 @@ import {
   deleteWorkflowTemplate,
   getAllRequiredDocumentTemplates,
   filterWorkflowTemplates,
-  searchWorkflowTemplatesByName
+  searchWorkflowTemplatesByName,
+  archiveWorkflowTemplate,
+  unarchiveWorkflowTemplate,
+  getArchivedWorkflowTemplates,
+  deleteArchivedWorkflowTemplate
 } from "../controllers/workflowTemplateController.js";
 
 // Routes for workflow template management
 router.post("/workflow-templates", createWorkflowTemplate);
 router.get("/workflow-templates/getAll", getAllWorkflowTemplates);
 router.get("/workflow-templates/get/:id", getWorkflowTemplateDetailById);
+router.get("/workflow-templates/getArchived/:id", getArchivedWorkflowTemplates);
 router.put('/workflow-templates/update/:id', updateWorkflowTemplate);
 router.delete("/workflow-templates/delete/:id", deleteWorkflowTemplate);
+router.delete("/workflow-templates/deleteArchived/:id", deleteArchivedWorkflowTemplate);
+router.patch("/workflow-templates/archive/:id", archiveWorkflowTemplate);
+router.patch("/workflow-templates/unarchive/:id", unarchiveWorkflowTemplate);
+
 router.get(
   "/workflow-templates/requiredDoc/:id",
   getAllRequiredDocumentTemplates
