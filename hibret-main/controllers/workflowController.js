@@ -17,8 +17,6 @@ import * as WorkflowService from "../services/workflowService.js";
 
 
 export async function createWorkflow(req, res) {
-  // const documentData = JSON.parse(req.body.documentData);
-  console.log("Received request body:", req.body); // Log the entire request body
 
   const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
 
@@ -34,8 +32,6 @@ export async function createWorkflow(req, res) {
       })
       .populate("subCategoryId")
       .exec();
-    console.log("hello");
-    console.log(workflowTemplate);
     if (!workflowTemplate) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
@@ -275,7 +271,7 @@ export async function createWorkflow(req, res) {
 
     return res
       .status(201)
-      .json({ workflow: savedWorkflow, userWorkflows, workflowFolder });
+      .json({   message: "Workflow created successfully",workflow: savedWorkflow, userWorkflows, workflowFolder });
   } catch (error) {
     console.error("Error creating workflow:", error);
     return res.status(500).json({ error: "Internal server error" });
