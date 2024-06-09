@@ -35,9 +35,7 @@ export const createWorkflowTemplate = async (req, res) => {
       !mongoose.Types.ObjectId.isValid(subCategoryId) ||
       !mongoose.Types.ObjectId.isValid(depId)
     ) {
-      return res
-        .status(400)
-        .json({ error: "Invalid category, subcategory, or repository ID" });
+      return res.status(400).json({ error: "Invalid category, subcategory, or repository ID" });
     }
 
     // Validate stages
