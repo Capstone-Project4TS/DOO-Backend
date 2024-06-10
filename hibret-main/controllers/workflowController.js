@@ -306,7 +306,7 @@ export async function getAllRequiredDocuments(req, res) {
 export const getAllWorkflows = async (req, res) => {
   try {
     // Fetch all workflow instances from the database
-    const workflows = await Workflow.find();
+    const workflows = await Workflow.find({ isDraft: { $ne: true } });
 
     if (!workflows) {
       return res.status(404).json({ message: "No worklfow found." });
@@ -1467,52 +1467,19 @@ export async function saveAsDraft(req, res) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
 
-    // Extract stage information
-    const stages = workflowTemplate.stages;
-
-    // Assign users to stages based on conditions or without conditions
-    const assignedUsers = [];
-    for (const [index, stage] of stages.entries()) {
-      let assignedUser;
-      if (stage.hasCondition) {
-        // Evaluate condition and select appropriate user(s)
-        assignedUser = await WorkflowService.assignUserWithCondition(
-          stage,
-          reqDoc
-        );
-      } else {
-        // Select user with least workload for the role
-        assignedUser = await WorkflowService.assignUserWithoutCondition(stage);
-      }
-      const committee = await Committee.findById(assignedUser);
-      if (committee) {
-        const userType = "Committee";
-        assignedUsers.push({
-          userType: userType,
-          committee: assignedUser,
-          stageIndex: index,
-        });
-      } else {
-        const userType = "User";
-        assignedUsers.push({
-          userType: userType,
-          user: assignedUser,
-          stageIndex: index,
-        });
-      }
-    }
-
     // Create a new workflow instance
     const newWorkflow = new Workflow({
       name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
-      assignedUsers,
+    
       isDraft: true,
     });
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
+    console.log("Generated Documents", generatedDocuments);
+
     if (generatedDocuments.status !== 200) {
       return res
         .status(generatedDocuments.status)
