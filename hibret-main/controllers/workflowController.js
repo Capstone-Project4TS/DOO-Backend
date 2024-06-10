@@ -1098,18 +1098,18 @@ export const getWorkflowDetails = async (req, res) => {
     }
     // Check if the user is a member of any committee
     const committee = await Committee.findOne({ members: userId });
-    // var assignedUser = null;
-    // var isActiveUser = false;
+    var assignedUser = null;
+    var isActiveUser = false;
     var tbrb = "";
 
-    // if (committee) {
-    //   // If user is a committee member, check if the committee is assigned to the workflow
-    //   assignedUser = workflow.assignedUsers.find(
-    //     user => user.committee && user.committee.toString() === committee._id.toString()
-    //   );
-    //   isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
-    //   tbrb = "Committee";
-    // } else {
+    if (committee) {
+      // If user is a committee member, check if the committee is assigned to the workflow
+      assignedUser = workflow.assignedUsers.find(
+        user => user.committee && user.committee.toString() === committee._id.toString()
+      );
+      isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+      tbrb = "Committee";
+    } else {
 
     // Check if user is assigned to the workflow and active in the current stage
 
@@ -1207,7 +1207,7 @@ export const getWorkflowDetails = async (req, res) => {
 
     // Return the workflow details to the client
     return res.status(200).json(responseData);
-  } catch (error) {
+}  } catch (error) {
     console.error("Error fetching workflow details:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -1511,11 +1511,6 @@ export async function saveAsDraft(req, res) {
       isDraft: true,
     });
 
-    const newDraft=new DraftWorkflow({
-      userId:userId,
-      workflowId: newWorkflow._id,
-    })
-
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
     if (generatedDocuments.status !== 200) {
@@ -1542,15 +1537,16 @@ export async function saveAsDraft(req, res) {
 
 // Handler to get all draft workflows
 export async function getDraftWorkflows(req, res) {
-  const { id } = req.params;
+  const { userId } = req.params;
   try {
-    const draftWorkflows = await Workflow.find(id).populate(' user workflowName');
+    const draftWorkflows = await Workflow.find({ user: userId, isDraft: true }).populate('user workflowTemplate');
     return res.status(200).json(draftWorkflows);
   } catch (error) {
     console.error("Error fetching draft workflows:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
 
 export default {
   searchWorkflowsByName,

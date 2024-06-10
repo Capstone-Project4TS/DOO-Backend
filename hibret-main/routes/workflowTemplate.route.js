@@ -26,7 +26,7 @@ router.route("/workflow-templates")
   .get(isLoggedIn, authorize(["DooAdmin"]), getAllWorkflowTemplates);
 
 router.route("/workflow-templates/getAll")
-  .get(isLoggedIn, authorize(["DooAdmin"]), getAllWorkflowTemplates);
+  .get(isLoggedIn,  getAllWorkflowTemplates);
 
 router.route("/workflow-templates/get/:id")
   .get(isLoggedIn, authorize(["DooAdmin"]), getWorkflowTemplateDetailById);
@@ -50,7 +50,7 @@ router.route("/workflow-templates/unarchive/:id")
   .patch(isLoggedIn, authorize(["DooAdmin"]), unarchiveWorkflowTemplate);
 
 router.route("/workflow-templates/requiredDoc/:id")
-  .get(isLoggedIn, authorize(["DooAdmin"]), getAllRequiredDocumentTemplates);
+  .get(isLoggedIn, getAllRequiredDocumentTemplates);
 
 router.route("/workflow-templates/search")
   .get(isLoggedIn, searchWorkflowTemplatesByName);

@@ -8,7 +8,7 @@ import  {
 const router = express.Router();
 
 router.route('/notifications/:userId')
-  .get(isLoggedIn, getNotifications);
+  .get( getNotifications);
 
 router.route('/notifications/:notificationId/read')
   .put(isLoggedIn, markAsRead);
