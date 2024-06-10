@@ -75,6 +75,10 @@ export async function login(req, res) {
       msg += user.username;
     }
 
+    if (user.otp != null) {
+      user.otp = null;
+    }
+
     // Update lastLoginDate
     user.lastLoginDate = new Date();
     await user.save();
@@ -92,16 +96,12 @@ export async function login(req, res) {
         _id: role._id,
         name: role.roleName,
         permissions: role.permissions ,// Include role permissions if needed
-        isNull: user.otp
+        isFirst: user.isFirst
       },
     };
     // Save the session (if you've modified data)
     await req.session.save();
-    
-    if (user.otp != null) {
-      user.otp = null;
-    }
-    await user.save();
+    console.log(req.session)
     // Return success response
     return res.status(200).send({ msg, data: req.session.data });
   } catch (error) {
