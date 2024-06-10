@@ -16,6 +16,10 @@ const WorkflowSchema = new Schema(
       type: Number,
       // required: true,
     },
+    isDraft:{
+      type: Boolean,
+      default: false,
+    },
     isArchived: {
       type: Boolean,
       default: false,

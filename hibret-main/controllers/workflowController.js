@@ -1503,13 +1503,18 @@ export async function saveAsDraft(req, res) {
     }
 
     // Create a new workflow instance
-    const newWorkflow = new DraftWorkflow({
+    const newWorkflow = new Workflow({
       name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
       assignedUsers,
       isDraft: true,
     });
+
+    const newDraft=new DraftWorkflow({
+      userId:userId,
+      workflowId: newWorkflow._id,
+    })
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
@@ -1535,6 +1540,18 @@ export async function saveAsDraft(req, res) {
   }
 }
 
+// Handler to get all draft workflows
+export async function getDraftWorkflows(req, res) {
+  const { id } = req.params;
+  try {
+    const draftWorkflows = await Workflow.find(id).populate(' user workflowName');
+    return res.status(200).json(draftWorkflows);
+  } catch (error) {
+    console.error("Error fetching draft workflows:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 export default {
   searchWorkflowsByName,
   createWorkflow,
@@ -1549,4 +1566,5 @@ export default {
   deleteExpiredWorkflows,
   cancelWorkflow,
   saveAsDraft,
+  getDraftWorkflows
 };
