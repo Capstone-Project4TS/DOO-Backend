@@ -5,6 +5,8 @@ import WorkflowTemplate from "../models/workflowTemplate.model.js";
 import DocumentTemplate from "../models/documentTemplate.model.js";
 import UserWorkflow from "../models/userWorkflow.model.js";
 import Role from "../models/role.model.js";
+import Committee from "../models/committee.model.js";
+
 import { getDeps } from "./roleController.js";
 export async function getAdminDashboard(req, res) {
   try {
@@ -212,7 +214,7 @@ export async function getAdminReport(req, res) {
 }
 
 export async function getUserDashboard(req, res) {
-  const userId = req.userId; // Assuming userId is available in the request
+  const userId = req.user.userId; // Assuming userId is available in the request
 
   try {
     // Count workflows initiated by the user
@@ -220,35 +222,48 @@ export async function getUserDashboard(req, res) {
       user: userId,
     });
 
-    // Count workflows assigned to the user
-    const assignedWorkflowsCount = await UserWorkflow.countDocuments({
-      userId,
-      "workflows.isActive": true,
+     // Count workflows assigned to the user by aggregating workflows within UserWorkflow documents
+     const userWorkflows = await UserWorkflow.find({ userId: userId });
+     const assignedWorkflowsCount = userWorkflows.reduce((count, userWorkflow) => {
+       return count + userWorkflow.workflows.length;
+     }, 0);
+
+    // Find all workflows assigned to the user or where the user is a committee member or chairperson
+    const assignedWorkflows = await Workflow.find({
+      $or: [
+        { "assignedUsers.user": userId },
+        { "assignedUsers.committee": { $in: await Committee.find({ members: userId }).select('_id') } },
+        { "assignedUsers.committee": { $in: await Committee.find({ chairperson: userId }).select('_id') } }
+      ],
     });
 
-    // Find all workflows assigned to the user
-    const assignedWorkflows = await Workflow.find({
+     // Fetch all workflows assigned to the user directly
+     const directlyAssignedWorkflows = await Workflow.find({
       "assignedUsers.user": userId,
+    }).select('_id requiredDocuments additionalDocuments');
+    
+    // Combine the workflow IDs
+    directlyAssignedWorkflows.forEach(workflow => assignedWorkflows.push(workflow._id));
+
+    // Fetch the workflows using the combined IDs
+    const allAssignedWorkflows = await Workflow.find({
+      _id: { $in: assignedWorkflows }
     });
 
     // Count documents created by the user while creating workflows
-    const documentIds = assignedWorkflows.reduce((acc, workflow) => {
-      const requiredDocs = workflow.requiredDocuments.map((doc) =>
-        doc.toString()
-      );
-      const additionalDocs = workflow.additionalDocuments.map((doc) =>
-        doc.toString()
-      );
-      return [...acc, ...requiredDocs, ...additionalDocs];
-    }, []);
+    const documentIds = new Set();
+    allAssignedWorkflows.forEach(workflow => {
+      workflow.requiredDocuments.forEach(docId => documentIds.add(docId.toString()));
+      workflow.additionalDocuments.forEach(docId => documentIds.add(docId.toString()));
+    });
 
     const createdDocumentsCount = await Document.countDocuments({
-      _id: { $in: documentIds },
+      _id: { $in: Array.from(documentIds) },
     });
 
     const response = {
       initiatedWorkflowsCount,
-      assignedWorkflowsCount: assignedWorkflows.length,
+      assignedWorkflowsCount,
       createdDocumentsCount,
     };
 
