@@ -1,8 +1,8 @@
 import express from "express";
 import morgan from "morgan";
+import cors from "cors";
 import { createServer } from "http";  // Import createServer from http
 import { Server } from "socket.io"; 
-import mongoose from 'mongoose';
 import connect from "./config/conn.js";
 import router from "./routes/route.js";
 import notificationRoutes from "./routes/notification.routes.js"
@@ -24,7 +24,7 @@ import initPassportJS from "./startup/passport.js";
 import initCORS from "./startup/cors.js";
 import MongoStore from "connect-mongo";
 import startCronJob from "./startup/dataBaseUpdater.js";
-import path from "path";
+// import path from "path";
 
 const app = express();
 /** middlewares */
@@ -32,8 +32,8 @@ const app = express();
 const server = createServer(app);     // Create an HTTP server
 const io = new Server(server, {
   cors: {
-    origin: "*",  // Allow all origins (configure this according to your needs)
-    methods: ["GET", "POST"],
+    origin: 'http://localhost:5173',
+     methods: ["GET", "POST"],
   }
 });
 
@@ -45,26 +45,28 @@ app.disable("x-powered-by");
 initPassportJS();
 initCORS(app);
 
-app.locals.OTP = {};
+
 // Middleware to initialize session
 app.use(
   session({
-    secret: process.env.SESSION_KEY, // Secret key used to sign the session ID cookie
+    secret: process.env.SESSION_KEY,
     resave: false,
     saveUninitialized: false,
     rolling: true,
     store: MongoStore.create({
-      mongoUrl: process.env.ATLAS_URI, // MongoDB connection URL
-      collectionName: "sessions", // Name of the collection to store sessions
-      ttl: 60 * 60, // Session expiration time in seconds (e.g., 1 day)
+      mongoUrl: process.env.ATLAS_URI,
+      collectionName: "sessions",
+      ttl: 60 * 60 * 24, // 1 day in seconds
     }),
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
-      httpOnly: true, // Cookie accessible only through HTTP(S) requests, not client-side scripts
-      secure: false,
+      maxAge: 1000 * 60 * 60 * 24, // 1 day in milliseconds
+      httpOnly: true,
+      secure: false, // Set to true if using HTTPS
+      sameSite: 'lax', // Adjust based on your needs ('strict', 'lax', 'none')
     },
   })
 );
+
 // app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(passport.session());
