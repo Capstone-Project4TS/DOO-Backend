@@ -254,7 +254,7 @@ export async function getAllCommittee(req, res) {
     const committee = await Committee.find({});
     res.status(200).json(committee);
   } catch (error) {
-    console.error("Error fetching roles:", error);
+    console.error("Error fetching committees:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }
