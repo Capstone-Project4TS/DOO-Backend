@@ -101,7 +101,6 @@ export async function login(req, res) {
     };
     // Save the session (if you've modified data)
     await req.session.save();
-    console.log(req.session)
     // Return success response
     return res.status(200).send({ msg, data: req.session.data });
   } catch (error) {

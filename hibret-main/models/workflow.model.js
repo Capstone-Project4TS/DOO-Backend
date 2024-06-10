@@ -16,10 +16,7 @@ const WorkflowSchema = new Schema(
       type: Number,
       // required: true,
     },
-    isDraft:{
-      type: Boolean,
-      default: false,
-    },
+
     isArchived: {
       type: Boolean,
       default: false,
@@ -43,7 +40,7 @@ const WorkflowSchema = new Schema(
   },
   status: {
     type: String,
-    enum: ["Pending", "Approved", "Rejected", "Cancelled"],
+    enum: ["Pending", "Approved", "Rejected", "Cancelled","Draft"],
     default: "Pending",
   },
   cancellationReason: {

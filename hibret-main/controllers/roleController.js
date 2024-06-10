@@ -83,7 +83,6 @@ async function updateRoles(roles) {
         if (Object.keys(updates).length > 0) {
           await RoleModel.findByIdAndUpdate(existingRole._id, { $set: updates });
           updateResults.push({ _id: existingRole._id, updates });
-          console.log(`Updated role ${existingRole._id}`);
         }
       } else {
         // Role doesn't exist, create it
@@ -94,7 +93,6 @@ async function updateRoles(roles) {
         });
         await newRole.save();
         updateResults.push({ _id: hrRole._id, created: true });
-        console.log(`Created new role ${hrRole._id}`);
       }
     }
 
@@ -117,7 +115,6 @@ async function deleteRoles(hrRoles) {
         // Role doesn't exist in HR roles, delete it
         await RoleModel.findByIdAndDelete(existingRole._id);
         deleteResults.push({ _id: existingRole._id, deleted: true });
-        console.log(`Deleted role ${existingRole._id}`);
       }
     }
 

@@ -204,9 +204,6 @@ export async function getAllRequiredDocumentTemplates(req, res) {
     if (!template) {
       return res.status(404).json({ message: "Workflow template not found" });
     }
-
-    console.log("Template:", template);
-
     const documents = template.requiredDocumentTemplates;
     const additionalDoc = template.additionalDocumentTemplate;
 
@@ -660,7 +657,6 @@ export async function deleteExpiredArchivedTemplates() {
     // Delete the expired templates
     for (const template of expiredTemplates) {
       await WorkflowTemplate.findByIdAndDelete(template._id);
-      console.log(`Deleted archived workflow template ${template._id}`);
     }
   } catch (err) {
     console.error("Error deleting expired archived workflow templates:", err);

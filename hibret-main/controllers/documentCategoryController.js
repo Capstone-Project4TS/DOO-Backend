@@ -217,7 +217,6 @@ export const updateDocumentCategory = async (req, res) => {
     if (!existingDocumentCategory) {
       return res.status(404).json({ error: "Document category not found" });
     }
-    console.log(existingDocumentCategory);
     // Check for duplicate category name
     const duplicateCategory = await DocumentCategory.findOne({ name });
     if (
@@ -233,7 +232,6 @@ export const updateDocumentCategory = async (req, res) => {
     const categoryFolder = await Folder.findOne({
       name: existingDocumentCategory.name,
     });
-    console.log(categoryFolder);
     if (categoryFolder) {
       categoryFolder.name = name;
       await categoryFolder.save();

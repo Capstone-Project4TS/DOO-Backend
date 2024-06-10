@@ -3,7 +3,6 @@ import { io } from '../server.js';
 
 export const sendNotification = async (recipientId, senderId, message,  workflowId = null) => {
   try {
-    console.log(`Sending notification to recipient: ${recipientId}, sender: ${senderId}, message: ${message}, workflowId: ${workflowId}`);
     const notificationData = new Notification({
       recipient: recipientId,
       sender: senderId,

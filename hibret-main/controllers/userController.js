@@ -152,25 +152,16 @@ export async function getAllUsers(req, res) {
 let OTP_STATE = {};
 let EMAIL="";
 export async function generateOTP(req, res) {
-  console.log('generateOTP function called');
-
   const { email } = req.body;
   const user = await UserModel.findOne({ email });
   EMAIL= user.email;
-  console.log('Current OTP state:', OTP_STATE);
-
+  // console.log('Current OTP state:', OTP_STATE);
   // Check if an OTP has been generated recently
   if (OTP_STATE.code && OTP_STATE.timestamp) {
     const currentTime = Date.now();
     const timeSinceLastOTP = currentTime - OTP_STATE.timestamp;
-
-    console.log(`Current time: ${currentTime}`);
-    console.log(`Last OTP timestamp: ${OTP_STATE.timestamp}`);
-    console.log(`Time since last OTP: ${timeSinceLastOTP}ms`);
-
     if (timeSinceLastOTP < OTP_EXPIRATION_TIME) {
       const timeRemaining = Math.ceil((OTP_EXPIRATION_TIME - timeSinceLastOTP) / 1000);
-      console.log(`Please wait ${timeRemaining} seconds before requesting a new OTP`);
       return res.status(429).json({ message: `Please wait ${timeRemaining} seconds before requesting a new OTP` });
     }
   }
@@ -184,9 +175,7 @@ export async function generateOTP(req, res) {
   // Store the OTP and the timestamp
   OTP_STATE = { code: otp, timestamp: Date.now() };
 
-  console.log(`Generated OTP: ${otp}`);
-  console.log(`OTP timestamp: ${OTP_STATE.timestamp}`);
-
+  // console.log(`Generated OTP: ${otp}`);
   // Send the OTP to the user (e.g., via email)
   const sendingOtp = await EmailService.sendPasswordResetCode(
     user.email,

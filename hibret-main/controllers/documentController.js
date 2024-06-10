@@ -65,11 +65,8 @@ const deleteDocumentById = async (req, res) => {
 // Function to handle data and generate PDFs
 export async function handleData(reqDocs, addDocs) {
   try {
-    console.log("reqDoc:", reqDocs);
-    console.log("addDoc:", addDocs);
 
     const fileUrls = {};
-
     const processDocs = async (docs) => {
       for (const doc of docs) {
         for (const section of doc.sections) {
@@ -91,7 +88,6 @@ export async function handleData(reqDocs, addDocs) {
 
                 mediaDocs.forEach((mediaDoc) => {
                   fileUrls[mediaDoc._id.toString()] = mediaDoc.url;
-                  console.log(`Mapped URL: ${mediaDoc._id} -> ${mediaDoc.url}`);
                 });
               } catch (error) {
                 console.error("Error fetching media documents:", error);
@@ -118,8 +114,6 @@ export async function handleData(reqDocs, addDocs) {
           const pdfPath = await generatePDF(doc, fileUrls, pdfName);
           const pdfBuffer = fs.readFileSync(pdfPath);
           const pdfUrl = await uploadPDFToCloudinary(pdfBuffer, pdfName);
-          console.log(pdfUrl);
-
           const newDocument = new Document({
             templateId: doc.templateId,
             title: doc.title,

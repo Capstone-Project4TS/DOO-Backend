@@ -19,7 +19,6 @@ export async function createWorkflow(req, res) {
   const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
 
   if (!reqDoc || reqDoc.length === 0) {
-    console.log("No reqDoc provided");
     return res.status(400).json({ message: "No data provided" });
   }
 
@@ -52,7 +51,6 @@ export async function createWorkflow(req, res) {
         assignedUser = await WorkflowService.assignUserWithoutCondition(stage);
       }
       const committee = await Committee.findById(assignedUser);
-      console.log("Committee", committee);
       if (committee) {
         const userType = "Committee";
         assignedUsers.push({
@@ -69,24 +67,18 @@ export async function createWorkflow(req, res) {
         });
       }
     }
-    console.log("Assigned users", assignedUsers);
     // Define the criteria for the hierarchy
     const repositoryId = workflowTemplate.depId;
-    console.log("Dep Id", repositoryId);
     const categoryName = workflowTemplate.categoryId.name;
     const subCategoryName = workflowTemplate.subCategoryId.name;
 
     const year = new Date().getFullYear();
-    console.log("year", year);
     const quarter = WorkflowService.getCurrentQuarter();
-    console.log("Quarter", quarter);
     const month = new Date().getMonth() + 1;
-    console.log("month", month);
     const monthName = new Date(year, month - 1).toLocaleString("default", {
       month: "long",
     });
 
-    console.log("month name", monthName);
     // Check if a workflow with the same name already exists for the current month
     const existingWorkflow = await Workflow.findOne({
       name: workflowName,
@@ -113,8 +105,6 @@ export async function createWorkflow(req, res) {
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
-    console.log("Generated Documents", generatedDocuments);
-
     if (generatedDocuments.status !== 200) {
       return res
         .status(generatedDocuments.status)
@@ -176,7 +166,6 @@ export async function createWorkflow(req, res) {
         const committee = await Committee.findById(user.committee).populate(
           "members"
         );
-        console.log("Committee", committee);
         for (const member of committee.members) {
           let memberWorkflow = await UserWorkflow.findOneAndUpdate(
             { userId: member._id },
@@ -262,18 +251,15 @@ export async function createWorkflow(req, res) {
         .status(404)
         .json({ message: "Department Repository not found" });
     }
-    console.log(rootFolder);
     // Traverse the folder hierarchy
     let categoryFolder = await Folder.findOne({
       parentFolder: rootFolder._id,
       name: categoryName,
     });
-    console.log("Category Folder", categoryFolder);
     let subCategoryFolder = await Folder.findOne({
       parentFolder: categoryFolder._id,
       name: subCategoryName,
     });
-    console.log("Sub Category Folder", subCategoryFolder);
     let yearFolder = await Folder.findOne({
       parentFolder: subCategoryFolder._id,
       name: `workflows of ${year}`,
@@ -302,30 +288,22 @@ export async function createWorkflow(req, res) {
     });
 
     if (!workflowFolder) {
-      console.log("Workflow folder is undefined. Initializing...");
       workflowFolder = new Folder({
         name: workflowTemplate.name,
         parentFolder: monthFolder._id,
       });
       workflowFolder = await workflowFolder.save();
-      console.log("Workflow Folder", workflowFolder);
       monthFolder.folders.push(workflowFolder._id);
       await monthFolder.save();
     } else {
       console.log("Workflow folder already exists...");
-      console.log(" Workflow Folder ", workflowFolder);
     }
 
     const index = workflowFolder.workflows.findIndex((workflow) => {
-      console.log("Workflow:", workflow.workflowId);
-      console.log("Saved Workflow ID:", savedWorkflow._id);
-      console.log("Saved Workflow ID type:", typeof savedWorkflow._id);
       return workflow.workflowId.toString() === savedWorkflow._id.toString();
     });
-    console.log("index", index);
 
     if (index === -1) {
-      console.log("Workflow not found in folder. Adding...");
       workflowFolder.workflows.push({
         workflowId: savedWorkflow._id,
         documents: [
@@ -337,8 +315,6 @@ export async function createWorkflow(req, res) {
     } else {
       console.log("Workflow already exists in folder. Skipping...");
     }
-
-    console.log("User Workflow",userWorkflows)
     return res.status(201).json({
       message: "Workflow created successfully",
       workflow: savedWorkflow,
@@ -1241,7 +1217,6 @@ export const getWorkflowDetails = async (req, res) => {
       }
 
       // Log the current stage information for debugging
-      console.log("Current Stage:", currentStage);
       console.log(
         "Current Stage User/Committee ID:",
         currentStage ? currentStage.user || currentStage.committee : null
@@ -1548,14 +1523,11 @@ export async function saveAsDraft(req, res) {
       name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
-
-      isDraft: true,
+      status:Draft
     });
 
     // Generate PDF from document data
     const generatedDocuments = await handleData(reqDoc, addDoc);
-    console.log("Generated Documents", generatedDocuments);
-
     if (generatedDocuments.status !== 200) {
       return res
         .status(generatedDocuments.status)

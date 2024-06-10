@@ -280,7 +280,6 @@ export async function getDocumentBySub(req, res) {
     if (!templates || templates.length === 0) {
       return res.status(404).json({ message: "No templates found for the given subcategory" });
     }
-    console.log(templates)
      // Fetch the list of departments
      const deps = await getDeps();
  
@@ -444,9 +443,7 @@ export const filterDocumentTemplates = async (req, res) => {
 async function createIndexes() {
   try {
     await DocumentTemplate.collection.createIndex({ eligibleConditions: 1 }); // 1 for ascending index
-    console.log("Index created for eligibleConditions field.");
     await DocumentTemplate.collection.createIndex({ _id: 1 }); // 1 for ascending index
-    console.log("Index created for _id field.");
   } catch (error) {
     console.error(
       "Failed to create index for eligibleConditions field:",
