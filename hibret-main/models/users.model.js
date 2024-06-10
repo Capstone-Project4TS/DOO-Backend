@@ -11,6 +11,7 @@ const userSchema = new Schema(
       maxlength: 50,
     },
     otp: { type: String, maxlength: 6 },
+    isFirst:{type:Boolean,default:true},
     password: { type: String, required: true, minlength: 6, maxlength: 1024 }, // Minimum password length
     email: {
       type: String,
