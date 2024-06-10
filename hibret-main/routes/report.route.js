@@ -17,10 +17,15 @@ const {
 
 
 //Get
-router.get("/admin/reports",isLoggedIn,authorize(["DooAdmin"]), getAdminReport);
-router.get("/admin/dashboard",isLoggedIn,authorize(["DooAdmin"]), getAdminDashboard);
+// Admin routes
+router.route("/admin/reports")
+  .get(isLoggedIn, authorize(["DooAdmin"]), getAdminReport);
 
-router.get("/user/dashboard",isLoggedIn, authMiddleware,getUserDashboard);
+router.route("/admin/dashboard")
+  .get(isLoggedIn, authorize(["DooAdmin"]), getAdminDashboard);
 
+// User routes
+router.route("/user/dashboard")
+  .get(isLoggedIn, authMiddleware, getUserDashboard);
 
 export default router;

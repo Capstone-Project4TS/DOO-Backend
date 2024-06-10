@@ -19,30 +19,31 @@ import {
   
 } from "../controllers/documentCategoryController.js";
 
-// // Route for creating a new document type
-router.post("/category", isLoggedIn, authorize(["DooAdmin"]),createDocumentCategory);
-
-// // Route for retrieving all document types
-router.get("/category",isLoggedIn, getAllDocumentCategory);
+// Route for creating a new document type
+router.route("/category")
+  .post(isLoggedIn, authorize(["DooAdmin"]), createDocumentCategory)
+  .get(isLoggedIn, getAllDocumentCategory);
 
 // Define the filter endpoint
-router.get('/document-categories/filter',isLoggedIn, filterDocumentCategories);
+router.route('/document-categories/filter')
+  .get(isLoggedIn, filterDocumentCategories);
 
 // Define the search by name endpoint
-router.get('/document-categories/search',isLoggedIn, searchDocumentCategoriesByName);
+router.route('/document-categories/search')
+  .get(isLoggedIn, searchDocumentCategoriesByName);
 
-// // Route for retrieving a specific document type by ID
-router.get("/category/:id",isLoggedIn, getDocumentCategoryById);
+// Route for retrieving a specific document type by ID
+router.route("/category/:id")
+  .get(isLoggedIn,authorize(["DooAdmin"]), getDocumentCategoryById)
+  .put(isLoggedIn, authorize(["DooAdmin"]), updateDocumentCategory)
+  .delete(isLoggedIn, authorize(["DooAdmin"]), deleteDocumentCategory);
 
-// // Route for retrieving a specific document type by ID
-router.get("/repo/category/:depId", isLoggedIn, getCategoriesByRepositoryId);
+// Route for retrieving categories by repository ID
+router.route("/repo/category/:depId")
+  .get(isLoggedIn, getCategoriesByRepositoryId);
 
-// // Route for updating a document type by ID
-router.put("/category/:id",isLoggedIn,authorize(["DooAdmin"]), updateDocumentCategory);
-
-// // Route for deleting a document type by ID
-router.delete("/category/:id", isLoggedIn,authorize(["DooAdmin"]), deleteDocumentCategory);
-
-router.get("/category/dep/:dep_id",isLoggedIn, getCatForDep)
+// Route for getting categories for a department
+router.route("/category/dep/:dep_id")
+  .get(isLoggedIn, getCatForDep);
 
 export default router;

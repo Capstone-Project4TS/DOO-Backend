@@ -11,10 +11,11 @@ const {
 } = documentController;
 
 
-//Get
-router.get("/detail/:id",isLoggedIn, getDocumentDetail);
+// Routes for document detail and deletion
+router.route("/detail/:id")
+  .get(isLoggedIn, getDocumentDetail);
 
-//DELETE
-router.delete("/delete/:id", isLoggedIn, deleteDocumentById);
+router.route("/delete/:id")
+  .delete(isLoggedIn, deleteDocumentById);
 
 export default router;

@@ -16,22 +16,17 @@ import {
   getSubCategoryByCatId,
 } from "../controllers/subCategoryController.js";
 
-// Route for creating a new sub-category
-router.post("/subCategory",isLoggedIn,authorize(["DooAdmin"]), createSubCategory);
+// Routes for sub-categories
+router.route("/subCategory")
+  .post(isLoggedIn, authorize(["DooAdmin"]), createSubCategory)
+  .get(isLoggedIn, getAllSubCategories);
 
-// Route for retrieving all sub-categories
-router.get("/subCategory", isLoggedIn, getAllSubCategories);
+router.route("/subCategory/:id")
+  .get(isLoggedIn, getSubCategoryById)
+  .put(isLoggedIn, authorize(["DooAdmin"]), updateSubCategory)
+  .delete(isLoggedIn, authorize(["DooAdmin"]), deleteSubCategory);
 
-// Route for retrieving a specific sub-category by ID
-router.get("/subCategory/:id",isLoggedIn, getSubCategoryById);
-
-// Route for retrieving a specific sub-category by ID
-router.get("/subCategory/cat/:id",isLoggedIn, getSubCategoryByCatId);
-
-// Route for updating a sub-category by ID
-router.put("/subCategory/:id",isLoggedIn, authorize(["DooAdmin"]),updateSubCategory);
-
-// Route for deleting a sub-category by ID
-router.delete("/subCategory/:id",isLoggedIn, authorize(["DooAdmin"]),deleteSubCategory);
+router.route("/subCategory/cat/:id")
+  .get(isLoggedIn, getSubCategoryByCatId);
 
 export default router;

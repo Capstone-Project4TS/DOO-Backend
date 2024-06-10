@@ -10,12 +10,8 @@ import {
 } from "../controllers/folderController.js";
 
 
-router.get("/fetchrepos", isLoggedIn, Auth, fetchRepositories);
-
-
-
-
-
+router.route("/fetchrepos")
+  .get(isLoggedIn, Auth, fetchRepositories);
 
 
 export default router;

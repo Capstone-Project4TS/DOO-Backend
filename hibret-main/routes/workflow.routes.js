@@ -30,51 +30,64 @@ import {
   saveAsDraft
 } from "../controllers/workflowController.js";
 
-// Route to create a new workflow instance
-router.post("/workflows",isLoggedIn, createWorkflow);
-router.post('/workflows/draft-workflows',isLoggedIn, saveAsDraft);
+// Routes for workflows
+router.route("/workflows")
+  .post(isLoggedIn, createWorkflow)
+  .get(isLoggedIn, getAllWorkflows);
 
-// Upload Documents endpoint
-router.post("/upload",isLoggedIn,upload.single("file"),uploadDoc);
+router.route("/workflows/draft-workflows")
+  .post(isLoggedIn, saveAsDraft);
 
-// Route to fetch all workflow instances
-router.get("/workflows",isLoggedIn, getAllWorkflows);
+router.route("/workflows/:id")
+  .put(isLoggedIn, updateWorkflow)
+  .delete(isLoggedIn, deleteWorkflow);
 
-// Route to fetch  workflow instances by id
-router.get("/workflows/get/:id",isLoggedIn, getWorkflowById);
-router.get("/workflows/:id/getArchived",isLoggedIn, getArchivedWorkflows);
-//Get all required documents in the workflow
-router.get("/reqDoc/workflows/:id", isLoggedIn,getAllRequiredDocuments);
+router.route("/workflows/:id/cancel")
+  .put(isLoggedIn, cancelWorkflow);
 
+router.route("/workflows/:id/deleteArchived")
+  .delete(isLoggedIn, deleteArchivedWorkflows);
 
-// Route to get all the workflows of an owner
-router.get("/workflows/owner/:userId",isLoggedIn, getAllWorkflowsOfOwner);
+router.route("/workflows/:id/archive")
+  .patch(isLoggedIn, archiveWorkflow);
 
-// Route to update an existing workflow
-router.put("/workflows/:id",isLoggedIn, updateWorkflow);
-router.put('/workflows/:id/cancel',isLoggedIn, cancelWorkflow);
+router.route("/workflows/:id/unarchive")
+  .patch(isLoggedIn, unarchiveWorkflow);
 
-// Route to update a workflow status
-//router.post('/workflows/status/:id', approveWorkflow);
+router.route("/workflows/get/:id")
+  .get(isLoggedIn, getWorkflowById);
 
-// Route to delete a workflow
-router.delete("/workflows/:id", isLoggedIn,deleteWorkflow);
-router.delete("/workflows/:id/deleteArchived",isLoggedIn, deleteArchivedWorkflows);
-router.patch("/workflows/:id/archive",isLoggedIn, archiveWorkflow);
-router.patch("/workflows/:id/unarchive",isLoggedIn, unarchiveWorkflow);
+router.route("/workflows/:id/getArchived")
+  .get(isLoggedIn, getArchivedWorkflows);
 
-// Define the search by name endpoint
-router.get('/workflows/search',isLoggedIn, searchWorkflowsByName);
+router.route("/reqDoc/workflows/:id")
+  .get(isLoggedIn, getAllRequiredDocuments);
 
-// Define the filter endpoint
-router.get('/workflows/filter',isLoggedIn, filterWorkflows);
+router.route("/workflows/owner/:userId")
+  .get(isLoggedIn, getAllWorkflowsOfOwner);
 
-// Route to switch stages, approve and reject
-router.post("/workflows/forward",isLoggedIn, moveStageForward);
-router.post("/workflows/backward",isLoggedIn, moveStageBackward);
-router.post("/workflows/approve",isLoggedIn, approveWorkflow);
-router.post("/workflows/reject",isLoggedIn, rejectWorkflow);
+router.route("/workflows/search")
+  .get(isLoggedIn, searchWorkflowsByName);
 
-router.get("/workflows/:workflowId/user/:userId",isLoggedIn, getWorkflowDetails);
+router.route("/workflows/filter")
+  .get(isLoggedIn, filterWorkflows);
+
+router.route("/workflows/forward")
+  .post(isLoggedIn, moveStageForward);
+
+router.route("/workflows/backward")
+  .post(isLoggedIn, moveStageBackward);
+
+router.route("/workflows/approve")
+  .post(isLoggedIn, approveWorkflow);
+
+router.route("/workflows/reject")
+  .post(isLoggedIn, rejectWorkflow);
+
+router.route("/workflows/:workflowId/user/:userId")
+  .get(isLoggedIn, getWorkflowDetails);
+
+router.route("/upload")
+  .post(isLoggedIn, upload.single("file"), uploadDoc);
 
 export default router;

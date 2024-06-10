@@ -7,7 +7,10 @@ import  {
   
 const router = express.Router();
 
-router.get('/notifications/:userId', isLoggedIn, getNotifications);
-router.put('/notifications/:notificationId/read',isLoggedIn, markAsRead);
+router.route('/notifications/:userId')
+  .get(isLoggedIn, getNotifications);
+
+router.route('/notifications/:notificationId/read')
+  .put(isLoggedIn, markAsRead);
 
 export default router;

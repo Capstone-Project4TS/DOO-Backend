@@ -19,16 +19,28 @@ import {
 
 const router = express.Router();
 
-// Route to get all roles
-router.get("/roles",isLoggedIn, getAllRoles);
-// Route to get role by ID
-router.get("/roles/:id",isLoggedIn, getRoleById);
-router.get("/deps",isLoggedIn, getAllDeps);
-router.get("/roles/dep/:id",isLoggedIn,authorize(["DooAdmin"]), getAllRolesByDepId);
-router.post("/committee",isLoggedIn,authorize(["DooAdmin"]), createCommittee);
-router.get("/committee",isLoggedIn,authorize(["DooAdmin"]), getAllCommittee);
+// Routes for roles
+router.route("/roles")
+  .get(isLoggedIn, getAllRoles);
 
-router.post("/roles/:roleId/permissions",isLoggedIn,authorize(["DooAdmin"]), addPermission);
-router.delete("/roles/:roleId/permissions/:permissionName",isLoggedIn,authorize(["DooAdmin"]), removePermission);
+router.route("/roles/:id")
+  .get(isLoggedIn, getRoleById);
 
+router.route("/deps")
+  .get(isLoggedIn, getAllDeps);
+
+router.route("/roles/dep/:id")
+  .get(isLoggedIn, authorize(["DooAdmin"]), getAllRolesByDepId);
+
+// Routes for committee
+router.route("/committee")
+  .post(isLoggedIn, authorize(["DooAdmin"]), createCommittee)
+  .get(isLoggedIn, authorize(["DooAdmin"]), getAllCommittee);
+
+// Routes for permissions
+router.route("/roles/:roleId/permissions")
+  .post(isLoggedIn, authorize(["DooAdmin"]), addPermission);
+
+router.route("/roles/:roleId/permissions/:permissionName")
+  .delete(isLoggedIn, authorize(["DooAdmin"]), removePermission);
 export default router;

@@ -10,13 +10,15 @@ import {
   updateUserWorkflowStatus,
 } from "../controllers/userWorkflowController.js";
 
-// Create a new user workflow
-router.post("/userWorkflow",isLoggedIn, createUserWorkflow);
+// Routes for user workflows
+router.route("/userWorkflow")
+  .post(isLoggedIn, createUserWorkflow);
 
-// Get user's workflows by user ID
-router.get("/userWorkflow/:userId",isLoggedIn, getUserWorkflows);
+router.route("/userWorkflow/:userId")
+  .get(isLoggedIn, getUserWorkflows);
 
-// Update user workflow status (isActive)
-router.put("/userWorkflow/:userId/:workflowId",isLoggedIn, updateUserWorkflowStatus);
+router.route("/userWorkflow/:userId/:workflowId")
+  .put(isLoggedIn, updateUserWorkflowStatus);
+
 
 export default router;

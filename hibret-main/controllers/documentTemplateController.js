@@ -84,6 +84,7 @@ export async function createDocumentTemplate(req, res) {
       .json({ error: "Failed to create document template" });
   }
 }
+
 // Get all document templates
 export async function getAllDocumentTemplates(req, res) {
   try {
