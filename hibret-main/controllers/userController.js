@@ -248,6 +248,8 @@ export async function resetPassword(req, res) {
 
     req.app.locals.resetSession = false; // reset session
     EMAIL=null
+    user.isFirst=false;
+    await user.save();
     return res
       .status(201)
       .send({ msg: "You have successfully resetted your password...!" });
