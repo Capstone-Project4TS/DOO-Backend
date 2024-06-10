@@ -248,6 +248,36 @@ export async function resetPassword(req, res) {
 
     req.app.locals.resetSession = false; // reset session
     EMAIL=null
+    
+    return res
+      .status(201)
+      .send({ msg: "You have successfully resetted your password...!" });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+/** PUT: http://localhost:5000/api/setNewPassword */
+export async function setNewPassword(req, res) {
+   const id= req.user.userId;
+  try {
+    
+    const { password } = req.body;
+
+    const user = await UserModel.findOne({ _id: id});
+    if (!user) {
+      return res.status(404).send({ error: "Username not Found" });
+    }
+    const salt = await bcrypt.genSalt(10); // Generate a random salt
+
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    await UserModel.updateOne(
+      { username: user.username },
+      { password: hashedPassword }
+    );
+
     user.isFirst=false;
     await user.save();
     return res
@@ -258,7 +288,6 @@ export async function resetPassword(req, res) {
     return res.status(500).send({ error: "Internal server error" });
   }
 }
-
 // Endpoint for change password
 export async function changePassword(req, res) {
   const { oldPassword, newPassword } = req.body;

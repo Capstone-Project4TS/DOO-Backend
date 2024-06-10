@@ -32,6 +32,7 @@ router.route("/admin/searchUsers").get(isLoggedIn,authorize(["DooAdmin"]),user.s
 
 /** PUT Methods */
 router.route("/resetPassword").put( user.resetPassword); // use to reset password
+router.route("/setNewPassword").put( Auth,user.setNewPassword); // use to set new password
 router.route("/change-password").put(isLoggedIn, Auth, user.changePassword);
 router
   .route("/admin/users/:userId/deactivate")
