@@ -6,7 +6,7 @@ import UserWorkflow from "../models/userWorkflow.model.js";
 import { handleData } from "../controllers/documentController.js";
 import Committee from "../models/committee.model.js";
 import Folder from "../models/folder.model.js";
-import DraftWorkflow from '../models/workflowDraft.model.js'
+import DraftWorkflow from "../models/workflowDraft.model.js";
 import { sendNotification } from "./notification.js";
 
 import {
@@ -15,9 +15,7 @@ import {
 } from "../services/workflowHelp.js";
 import * as WorkflowService from "../services/workflowService.js";
 
-
 export async function createWorkflow(req, res) {
-
   const { workflowTemplateId, workflowName, userId, reqDoc, addDoc } = req.body;
 
   if (!reqDoc || reqDoc.length === 0) {
@@ -54,6 +52,7 @@ export async function createWorkflow(req, res) {
         assignedUser = await WorkflowService.assignUserWithoutCondition(stage);
       }
       const committee = await Committee.findById(assignedUser);
+      console.log("Committee", committee);
       if (committee) {
         const userType = "Committee";
         assignedUsers.push({
@@ -70,7 +69,7 @@ export async function createWorkflow(req, res) {
         });
       }
     }
-
+    console.log("Assigned users", assignedUsers);
     // Define the criteria for the hierarchy
     const repositoryId = workflowTemplate.depId;
     console.log("Dep Id", repositoryId);
@@ -131,35 +130,113 @@ export async function createWorkflow(req, res) {
     // Save workflow instance
     const savedWorkflow = await newWorkflow.save();
 
-    // Update or create user workflow entry
-    const userWorkflows = [];
-    for (const user of assignedUsers) {
-      const { user: assignedUserId, stageIndex } = user;
-
-      // Update or create user workflow entry
-      let userWorkflow = await UserWorkflow.findOneAndUpdate(
-        { userId },
-        {
-          $addToSet: {
-            workflows: {
-              workflowId: savedWorkflow._id,
-              isActive: stageIndex === newWorkflow.currentStageIndex,
-            },
+    // Update or create user workflow entry for the initiator
+    await UserWorkflow.findOneAndUpdate(
+      { userId },
+      {
+        $addToSet: {
+          workflows: {
+            workflowId: savedWorkflow._id,
+            isActive: false, // Initiator's stage is -1, hence inactive
           },
         },
-        { upsert: true, new: true }
-      );
+      },
+      { upsert: true, new: true }
+    );
 
-      // Check if userWorkflow is not null before pushing it into the array
-      if (userWorkflow) {
-        userWorkflows.push(userWorkflow);
+    // Define an array to store user workflows
+    let userWorkflows = [];
+    // Update or create user workflow entries for assigned users
+    for (const user of assignedUsers) {
+      if (user.userType === "User") {
+        let singleUserWorkflow = await UserWorkflow.findOneAndUpdate(
+          { userId: user.user },
+          {
+            $addToSet: {
+              workflows: {
+                workflowId: savedWorkflow._id,
+                isActive: user.stageIndex === newWorkflow.currentStageIndex,
+              },
+            },
+          },
+          { upsert: true, new: true }
+        );
+
+        // Check if singleUserWorkflow is not null before pushing it into the array
+        if (singleUserWorkflow) {
+          // Push singleUserWorkflow into userWorkflows array
+          userWorkflows.push(singleUserWorkflow);
+        } else {
+          console.error(
+            "Failed to create user workflow for single user:",
+            userId
+          );
+        }
+      } else if (user.userType === "Committee") {
+        const committee = await Committee.findById(user.committee).populate(
+          "members"
+        );
+        console.log("Committee", committee);
+        for (const member of committee.members) {
+          let memberWorkflow = await UserWorkflow.findOneAndUpdate(
+            { userId: member._id },
+            {
+              $addToSet: {
+                workflows: {
+                  workflowId: savedWorkflow._id,
+                  isActive: user.stageIndex === newWorkflow.currentStageIndex,
+                },
+              },
+            },
+            { upsert: true, new: true }
+          );
+          // Check if memberWorkflow is not null before pushing it into the array
+          if (memberWorkflow) {
+            // Push memberWorkflow into userWorkflows array
+            userWorkflows.push(memberWorkflow);
+          } else {
+            console.error("Failed to create user workflow for member:", member);
+          }
+        }
+
+        let chairpersonWorkflow = await UserWorkflow.findOneAndUpdate(
+          { userId: committee.chairperson._id },
+          {
+            $addToSet: {
+              workflows: {
+                workflowId: savedWorkflow._id,
+                isActive: user.stageIndex === newWorkflow.currentStageIndex,
+              },
+            },
+          },
+          { upsert: true, new: true }
+        );
+        // Check if memberWorkflow is not null before pushing it into the array
+        if (chairpersonWorkflow) {
+          // Push memberWorkflow into userWorkflows array
+          userWorkflows.push(chairpersonWorkflow);
+        } else {
+          console.error(
+            "Failed to create user workflow for member:",
+            chairpersonWorkflow
+          );
+        }
       }
+    }
 
-      // Send notification to the user or committee members
-      const committee = await Committee.findById(assignedUserId).populate(
-        "members"
-      );
-      if (committee) {
+    // Send notifications to assigned users
+    for (const user of assignedUsers) {
+      if (user.userType === "User") {
+        await sendNotification(
+          user.user,
+          userId,
+          `You have been assigned to a new workflow: ${workflowName}.`,
+          savedWorkflow._id
+        );
+      } else if (user.userType === "Committee") {
+        const committee = await Committee.findById(user.committee).populate(
+          "members"
+        );
         for (const member of committee.members) {
           await sendNotification(
             member._id,
@@ -171,19 +248,11 @@ export async function createWorkflow(req, res) {
         await sendNotification(
           committee.chairperson,
           userId,
-          `You have been assigned to a new workflow as the chairperson of committee ${committee.name} : ${workflowName}.`,
-          savedWorkflow._id
-        );
-      } else {
-        await sendNotification(
-          assignedUserId,
-          userId,
-          `You have been assigned to a new workflow: ${workflowName}.`,
+          `You have been assigned to a new workflow as the chairperson of committee ${committee.name}: ${workflowName}.`,
           savedWorkflow._id
         );
       }
     }
-
     // Find the root folder based on the user's department
     const rootFolder = await Folder.findOne({
       parentFolder: repositoryId,
@@ -193,7 +262,7 @@ export async function createWorkflow(req, res) {
         .status(404)
         .json({ message: "Department Repository not found" });
     }
-    console.log(rootFolder)
+    console.log(rootFolder);
     // Traverse the folder hierarchy
     let categoryFolder = await Folder.findOne({
       parentFolder: rootFolder._id,
@@ -269,9 +338,13 @@ export async function createWorkflow(req, res) {
       console.log("Workflow already exists in folder. Skipping...");
     }
 
-    return res
-      .status(201)
-      .json({   message: "Workflow created successfully",workflow: savedWorkflow, userWorkflows, workflowFolder });
+    console.log("User Workflow",userWorkflows)
+    return res.status(201).json({
+      message: "Workflow created successfully",
+      workflow: savedWorkflow,
+      userWorkflows,
+      workflowFolder,
+    });
   } catch (error) {
     console.error("Error creating workflow:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -507,7 +580,6 @@ export const cancelWorkflow = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 export const moveStageForward = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
@@ -1105,109 +1177,113 @@ export const getWorkflowDetails = async (req, res) => {
     if (committee) {
       // If user is a committee member, check if the committee is assigned to the workflow
       assignedUser = workflow.assignedUsers.find(
-        user => user.committee && user.committee.toString() === committee._id.toString()
+        (user) =>
+          user.committee &&
+          user.committee.toString() === committee._id.toString()
       );
-      isActiveUser = assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+      isActiveUser =
+        assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
       tbrb = "Committee";
     } else {
+      // Check if user is assigned to the workflow and active in the current stage
 
-    // Check if user is assigned to the workflow and active in the current stage
+      const assignedUser = workflow.assignedUsers.find(
+        (user) => user.user && user.user.toString() === userId
+      );
+      const isActiveUser =
+        assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
+      tbrb = "Single Person";
+      // }
 
-    const assignedUser = workflow.assignedUsers.find(
-      (user) => user.user && user.user.toString() === userId
-    );
-    const isActiveUser =
-      assignedUser && assignedUser.stageIndex === workflow.currentStageIndex;
-    tbrb = "Single Person";
-    // }
+      // Check user permissions and determine button visibility
+      const isOwner = workflow.user.toString() === userId;
+      const currentStageIndex = workflow.currentStageIndex;
+      const canMoveForward =
+        (isActiveUser &&
+          currentStageIndex < workflow.assignedUsers.length - 1) ||
+        true;
+      const canMoveBackward = (isActiveUser && currentStageIndex > 0) || true;
+      const canApprove =
+        (isActiveUser &&
+          currentStageIndex === workflow.assignedUsers.length - 1) ||
+        true;
+      const isActive = isActiveUser;
+      const canEdit = isOwner && currentStageIndex == -1;
 
-    // Check user permissions and determine button visibility
-    const isOwner = workflow.user.toString() === userId;
-    const currentStageIndex = workflow.currentStageIndex;
-    const canMoveForward =
-      (isActiveUser && currentStageIndex < workflow.assignedUsers.length - 1) ||
-      true;
-    const canMoveBackward = (isActiveUser && currentStageIndex > 0) || true;
-    const canApprove =
-      (isActiveUser &&
-        currentStageIndex === workflow.assignedUsers.length - 1) ||
-      true;
-    const isActive = isActiveUser;
-    const canEdit = isOwner && currentStageIndex == -1;
+      // Determine comment visibility based on user role
+      const comments = isOwner
+        ? workflow.comments
+        : workflow.comments.filter((comment) =>
+            comment.visibleTo.some((user) => user._id.toString() === userId)
+          );
 
-    // Determine comment visibility based on user role
-    const comments = isOwner
-      ? workflow.comments
-      : workflow.comments.filter((comment) =>
-          comment.visibleTo.some((user) => user._id.toString() === userId)
-        );
+      // Get the current stage user or committee name
+      let currentStageUserOrCommitteeName = "";
+      const currentStage = workflow.assignedUsers.find(
+        (stage) => stage.stageIndex === currentStageIndex
+      );
 
-    // Get the current stage user or committee name
-    let currentStageUserOrCommitteeName = "";
-    const currentStage = workflow.assignedUsers.find(
-      (stage) => stage.stageIndex === currentStageIndex
-    );
-
-    if (currentStage) {
-      const id = currentStage.user || currentStage.committee;
-      if (id) {
-        // Check if the ID belongs to a User
-        const user = await User.findById(id).select("name");
-        if (user) {
-          currentStageUserOrCommitteeName = user.name;
-        } else {
-          // If not a user, check if it belongs to a Committee
-          const committee = await Committee.findById(id).select("name");
-          if (committee) {
-            currentStageUserOrCommitteeName = committee.name;
+      if (currentStage) {
+        const id = currentStage.user || currentStage.committee;
+        if (id) {
+          // Check if the ID belongs to a User
+          const user = await User.findById(id).select("name");
+          if (user) {
+            currentStageUserOrCommitteeName = user.name;
+          } else {
+            // If not a user, check if it belongs to a Committee
+            const committee = await Committee.findById(id).select("name");
+            if (committee) {
+              currentStageUserOrCommitteeName = committee.name;
+            }
           }
         }
       }
+
+      // Log the current stage information for debugging
+      console.log("Current Stage:", currentStage);
+      console.log(
+        "Current Stage User/Committee ID:",
+        currentStage ? currentStage.user || currentStage.committee : null
+      );
+      console.log(
+        "Current Stage User/Committee Name:",
+        currentStageUserOrCommitteeName
+      );
+
+      // Prepare response data
+      const responseData = {
+        workflow: {
+          _id: workflow._id,
+          name: workflow.name,
+          status: workflow.status,
+          currentStageIndex: workflow.currentStageIndex,
+          requiredDocuments: workflow.requiredDocuments.map((doc) => ({
+            name: doc.title,
+            filePath: doc.filePath,
+          })),
+          additionalDocuments: workflow.additionalDocuments.map((doc) => ({
+            name: doc.title,
+            filePath: doc.filePath,
+          })),
+          comments,
+        },
+        toBeReviewedBy: tbrb,
+        isActive: isActive,
+        currentStageUser: currentStageUserOrCommitteeName,
+        buttons: {
+          canMoveForward,
+          canMoveBackward,
+          isOwner,
+          canApprove,
+          canEdit,
+        },
+      };
+
+      // Return the workflow details to the client
+      return res.status(200).json(responseData);
     }
-
-    // Log the current stage information for debugging
-    console.log("Current Stage:", currentStage);
-    console.log(
-      "Current Stage User/Committee ID:",
-      currentStage ? currentStage.user || currentStage.committee : null
-    );
-    console.log(
-      "Current Stage User/Committee Name:",
-      currentStageUserOrCommitteeName
-    );
-
-    // Prepare response data
-    const responseData = {
-      workflow: {
-        _id: workflow._id,
-        name: workflow.name,
-        status: workflow.status,
-        currentStageIndex: workflow.currentStageIndex,
-        requiredDocuments: workflow.requiredDocuments.map((doc) => ({
-          name: doc.title,
-          filePath: doc.filePath,
-        })),
-        additionalDocuments: workflow.additionalDocuments.map((doc) => ({
-          name: doc.title,
-          filePath: doc.filePath,
-        })),
-        comments,
-      },
-      toBeReviewedBy: tbrb,
-      isActive: isActive,
-      currentStageUser: currentStageUserOrCommitteeName,
-      buttons: {
-        canMoveForward,
-        canMoveBackward,
-        isOwner,
-        canApprove,
-        canEdit,
-      },
-    };
-
-    // Return the workflow details to the client
-    return res.status(200).json(responseData);
-}  } catch (error) {
+  } catch (error) {
     console.error("Error fetching workflow details:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -1472,7 +1548,7 @@ export async function saveAsDraft(req, res) {
       name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
-    
+
       isDraft: true,
     });
 
@@ -1506,14 +1582,16 @@ export async function saveAsDraft(req, res) {
 export async function getDraftWorkflows(req, res) {
   const { userId } = req.params;
   try {
-    const draftWorkflows = await Workflow.find({ user: userId, isDraft: true }).populate('user workflowTemplate');
+    const draftWorkflows = await Workflow.find({
+      user: userId,
+      isDraft: true,
+    }).populate("user workflowTemplate");
     return res.status(200).json(draftWorkflows);
   } catch (error) {
     console.error("Error fetching draft workflows:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
-
 
 export default {
   searchWorkflowsByName,
@@ -1529,5 +1607,5 @@ export default {
   deleteExpiredWorkflows,
   cancelWorkflow,
   saveAsDraft,
-  getDraftWorkflows
+  getDraftWorkflows,
 };

@@ -3,21 +3,24 @@ import { io } from '../server.js';
 
 export const sendNotification = async (recipientId, senderId, message,  workflowId = null) => {
   try {
+    console.log(`Sending notification to recipient: ${recipientId}, sender: ${senderId}, message: ${message}, workflowId: ${workflowId}`);
     const notificationData = new Notification({
       recipient: recipientId,
       sender: senderId,
-      message
+      message,
+      workflowId,
+      createdAt: new Date()
     });
 
-    if (workflowId) {
-      notificationData.workflowId = workflowId;
-    }
+    // if (workflowId) {
+    //   notificationData.workflowId = workflowId;
+    // }
 
-    const notification = new Notification(notificationData);
-    await notification.save();
+    // const notification = new Notification(notificationData);
+    await notificationData.save();
 
     // Emit the notification to the recipient in real-time
-    io.to(recipientId.toString()).emit('newNotification', notification);
+    io.to(recipientId.toString()).emit('newNotification', notificationData);
   } catch (error) {
     console.error('Error sending notification:', error);
   }
