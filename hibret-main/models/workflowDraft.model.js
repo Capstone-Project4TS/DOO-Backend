@@ -6,11 +6,29 @@ const DraftWorkflowSchema = new Schema(
     ref: "User",
     required: true,
   },
-  workflowId:{
+  name: {
+    type: String,
+    // required: true
+  },
+
+  workflowTemplate: {
     type: Schema.Types.ObjectId,
-    ref: "Workflow",
+    ref: "WorkflowTemplate",
     required: true,
   },
+  requiredDocuments: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      required: true,
+    },
+  ],
+  additionalDocuments: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
+  ],
 });
 
 const DraftWorkflow = model("DraftWorkflow", DraftWorkflowSchema);

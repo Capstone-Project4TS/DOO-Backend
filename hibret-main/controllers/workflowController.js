@@ -576,7 +576,9 @@ export const moveStageForward = async (req, res) => {
     if (!assignedUser) {
       return res
         .status(403)
-        .json({ message: "No user or committee assigned to the current stage" });
+        .json({
+          message: "No user or committee assigned to the current stage",
+        });
     }
 
     // Check if the user is a member of the assigned committee or the assigned user
@@ -662,7 +664,10 @@ export const moveStageForward = async (req, res) => {
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
 
       const committee = await Committee.findById(assignedUser.committee);
-      if (committee && Object.keys(voteCounts).length === committee.members.length) {
+      if (
+        committee &&
+        Object.keys(voteCounts).length === committee.members.length
+      ) {
         const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
           voteCounts[a] > voteCounts[b] ? a : b
         );
@@ -727,7 +732,6 @@ export const moveStageForward = async (req, res) => {
   }
 };
 
-
 export const moveStageBackward = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
 
@@ -747,7 +751,9 @@ export const moveStageBackward = async (req, res) => {
     if (!assignedUser) {
       return res
         .status(403)
-        .json({ message: "No user or committee assigned to the current stage" });
+        .json({
+          message: "No user or committee assigned to the current stage",
+        });
     }
 
     // Check if the userId is the committee ID or a member of the assigned committee
@@ -757,7 +763,11 @@ export const moveStageBackward = async (req, res) => {
       if (committee) {
         if (committee._id.toString() === userId.toString()) {
           isAssignedUser = true;
-        } else if (committee.members.some(member => member._id.toString() === userId.toString())) {
+        } else if (
+          committee.members.some(
+            (member) => member._id.toString() === userId.toString()
+          )
+        ) {
           isAssignedUser = true;
         }
       }
@@ -783,7 +793,7 @@ export const moveStageBackward = async (req, res) => {
         toUser: prevUser,
         toCommittee: prevCommittee,
         comment: comment,
-        decision: "Revert",  // Match the enum value in your schema
+        decision: "Revert", // Match the enum value in your schema
         visibleTo: [
           userId?.toString(),
           prevUser?.toString(),
@@ -824,13 +834,16 @@ export const moveStageBackward = async (req, res) => {
         stageIndex: currentStageIndex,
         committeeId: assignedUser.committee,
         memberId: userId,
-        decision: "backward",  // Match the enum value in your schema
+        decision: "backward", // Match the enum value in your schema
       });
 
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
 
       const committee = await Committee.findById(assignedUser.committee);
-      if (committee && Object.keys(voteCounts).length === committee.members.length) {
+      if (
+        committee &&
+        Object.keys(voteCounts).length === committee.members.length
+      ) {
         const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
           voteCounts[a] > voteCounts[b] ? a : b
         );
@@ -987,6 +1000,7 @@ export const approveWorkflow = async (req, res) => {
       }
     } else {
       workflow.status = "Approved";
+      workflow.isArchived = true;
       await workflow.save();
       await sendNotification(
         workflow.user,
@@ -1092,6 +1106,7 @@ export const rejectWorkflow = async (req, res) => {
       }
     } else {
       workflow.status = "Rejected";
+      workflow.isArchived = true;
       await workflow.save();
       await sendNotification(
         workflow.user,
@@ -1106,7 +1121,6 @@ export const rejectWorkflow = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 export const getWorkflowDetails = async (req, res) => {
   const { workflowId, userId } = req.params;
@@ -1537,11 +1551,11 @@ export async function saveAsDraft(req, res) {
     }
 
     // Create a new workflow instance
-    const newWorkflow = new Workflow({
+    const newWorkflow = new DraftWorkflow({
       name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
-      status: Draft,
+
     });
 
     // Generate PDF from document data
@@ -1561,7 +1575,7 @@ export async function saveAsDraft(req, res) {
     // Save workflow instance
     const savedWorkflow = await newWorkflow.save();
 
-    return res.status(201).json({ workflow: savedWorkflow });
+    return res.status(201).json({ workflow: savedWorkflow , message: 'Successfully Workflow Drafted'});
   } catch (error) {
     console.error("Error saving workflow as draft:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -1572,9 +1586,9 @@ export async function saveAsDraft(req, res) {
 export async function getDraftWorkflows(req, res) {
   const { userId } = req.params;
   try {
-    const draftWorkflows = await Workflow.find({
-      user: userId,
-      isDraft: true,
+    const draftWorkflows = await DraftWorkflow.find({
+      userId: userId,
+      
     }).populate("user workflowTemplate");
     return res.status(200).json(draftWorkflows);
   } catch (error) {
