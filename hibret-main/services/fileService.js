@@ -66,8 +66,9 @@ export const uploadPDFToCloudinary = async (pdfBuffer, pdfName) => {
 // };
 
 export const uploadFilesToCloudinary = async (file) => {
-  const filePath = "C:/Users/AA/Desktop/CapstoneProject/DOO-Backend/hibret-main/uploads/" + file.filename;
-  try {
+  const __dirname = path.resolve();
+  const filePath = path.join(__dirname, 'uploads', file.filename);
+    try {
     const fileBuffer = await fs.promises.readFile(filePath);
 
     return new Promise((resolve, reject) => {
