@@ -568,25 +568,29 @@ export const moveStageForward = async (req, res) => {
 
     const currentStageIndex = workflow.currentStageIndex;
 
-    // Check if the user is a member of any committee
-    const committee = await Committee.findOne({ members: userId });
-    let assignedUser;
-
-    if (committee) {
-      assignedUser = workflow.assignedUsers.find(
-        (user) =>
-          user.committee.toString() === committee._id &&
-          user.stageIndex === currentStageIndex
-      );
-    } else {
-      assignedUser = workflow.assignedUsers.find(
-        (user) =>
-          user.user.toString() === userId &&
-          user.stageIndex === currentStageIndex
-      );
-    }
+    // Find the assigned user or committee for the current stage
+    const assignedUser = workflow.assignedUsers.find(
+      (user) => user.stageIndex === currentStageIndex
+    );
 
     if (!assignedUser) {
+      return res
+        .status(403)
+        .json({ message: "No user or committee assigned to the current stage" });
+    }
+
+    // Check if the user is a member of the assigned committee or the assigned user
+    let isAssignedUser = false;
+    if (assignedUser.userType === "Committee") {
+      const committee = await Committee.findById(assignedUser.committee);
+      if (committee && committee.members.includes(userId)) {
+        isAssignedUser = true;
+      }
+    } else if (assignedUser.user.toString() === userId.toString()) {
+      isAssignedUser = true;
+    }
+
+    if (!isAssignedUser) {
       return res
         .status(403)
         .json({ message: "User not assigned to the current stage" });
@@ -615,16 +619,19 @@ export const moveStageForward = async (req, res) => {
         visibleTo: [
           userId?.toString(),
           nextUser?.toString(),
-          workflow.user._id.toString(),
+          workflow.user.toString(),
         ].filter(Boolean),
       };
 
       // If the user is part of a committee, add the committee name to the comment
-      if (committee) {
-        commentObj.memberOf = committee.name;
-        commentObj.visibleTo.push(
-          ...committee.members.map((member) => member._id.toString())
-        );
+      if (assignedUser.userType === "Committee") {
+        const committee = await Committee.findById(assignedUser.committee);
+        if (committee) {
+          commentObj.memberOf = committee.name;
+          commentObj.visibleTo.push(
+            ...committee.members.map((member) => member._id.toString())
+          );
+        }
       }
 
       // If the next stage involves a committee, make the comment visible to all its members
@@ -654,9 +661,8 @@ export const moveStageForward = async (req, res) => {
 
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
 
-      if (
-        Object.keys(voteCounts).length === assignedUser.committee.members.length
-      ) {
+      const committee = await Committee.findById(assignedUser.committee);
+      if (committee && Object.keys(voteCounts).length === committee.members.length) {
         const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
           voteCounts[a] > voteCounts[b] ? a : b
         );
@@ -693,21 +699,21 @@ export const moveStageForward = async (req, res) => {
           await sendNotification(
             member._id,
             userId,
-            `Workflow ${workflow.workflowName} has reached your stage as part of the committee ${nextCommittee.name}.`,
+            `Workflow ${workflow.name} has reached your stage as part of the committee ${nextCommittee.name}.`,
             workflowId
           );
         }
         await sendNotification(
           nextCommittee.chairperson,
           userId,
-          `Workflow ${workflow.workflowName} has reached your stage as the chairperson of committee ${nextCommittee.name}.`,
+          `Workflow ${workflow.name} has reached your stage as the chairperson of committee ${nextCommittee.name}.`,
           workflowId
         );
       } else {
         await sendNotification(
           nextUserId,
           userId,
-          `Workflow ${workflow.workflowName} has reached your stage.`,
+          `Workflow ${workflow.name} has reached your stage.`,
           workflowId
         );
       }
@@ -721,6 +727,7 @@ export const moveStageForward = async (req, res) => {
   }
 };
 
+
 export const moveStageBackward = async (req, res) => {
   const { workflowId, userId, comment } = req.body;
 
@@ -732,25 +739,33 @@ export const moveStageBackward = async (req, res) => {
 
     const currentStageIndex = workflow.currentStageIndex;
 
-    // Check if the user is a member of any committee
-    const committee = await Committee.findOne({ members: userId });
-    let assignedUser;
-
-    if (committee) {
-      assignedUser = workflow.assignedUsers.find(
-        (user) =>
-          user.committee.toString() === committee._id.toString() &&
-          user.stageIndex === currentStageIndex
-      );
-    } else {
-      assignedUser = workflow.assignedUsers.find(
-        (user) =>
-          user.user.toString() === userId &&
-          user.stageIndex === currentStageIndex
-      );
-    }
+    // Find the assigned user or committee for the current stage
+    const assignedUser = workflow.assignedUsers.find(
+      (user) => user.stageIndex === currentStageIndex
+    );
 
     if (!assignedUser) {
+      return res
+        .status(403)
+        .json({ message: "No user or committee assigned to the current stage" });
+    }
+
+    // Check if the userId is the committee ID or a member of the assigned committee
+    let isAssignedUser = false;
+    if (assignedUser.userType === "Committee") {
+      const committee = await Committee.findById(assignedUser.committee);
+      if (committee) {
+        if (committee._id.toString() === userId.toString()) {
+          isAssignedUser = true;
+        } else if (committee.members.some(member => member._id.toString() === userId.toString())) {
+          isAssignedUser = true;
+        }
+      }
+    } else if (assignedUser.user.toString() === userId.toString()) {
+      isAssignedUser = true;
+    }
+
+    if (!isAssignedUser) {
       return res
         .status(403)
         .json({ message: "User not assigned to the current stage" });
@@ -768,20 +783,23 @@ export const moveStageBackward = async (req, res) => {
         toUser: prevUser,
         toCommittee: prevCommittee,
         comment: comment,
-        decision: "Revert",
+        decision: "Revert",  // Match the enum value in your schema
         visibleTo: [
           userId?.toString(),
           prevUser?.toString(),
-          workflow.user._id.toString(),
+          workflow.user.toString(),
         ].filter(Boolean),
       };
 
-      // If the user is part of a committee, add the committee name to the comment
-      if (committee) {
-        commentObj.memberOf = committee.name;
-        commentObj.visibleTo.push(
-          ...committee.members.map((member) => member._id.toString())
-        );
+      // If the user is part of a committee, add the committee ObjectId to the comment
+      if (assignedUser.userType === "Committee") {
+        const committee = await Committee.findById(assignedUser.committee);
+        if (committee) {
+          commentObj.memberOf = committee._id;
+          commentObj.visibleTo.push(
+            ...committee.members.map((member) => member._id.toString())
+          );
+        }
       }
 
       // If the previous stage involves a committee, make the comment visible to all its members
@@ -806,14 +824,13 @@ export const moveStageBackward = async (req, res) => {
         stageIndex: currentStageIndex,
         committeeId: assignedUser.committee,
         memberId: userId,
-        decision: "revert",
+        decision: "backward",  // Match the enum value in your schema
       });
 
       const voteCounts = aggregateVotes(workflow.votes, currentStageIndex);
 
-      if (
-        Object.keys(voteCounts).length === assignedUser.committee.members.length
-      ) {
+      const committee = await Committee.findById(assignedUser.committee);
+      if (committee && Object.keys(voteCounts).length === committee.members.length) {
         const majorityDecision = Object.keys(voteCounts).reduce((a, b) =>
           voteCounts[a] > voteCounts[b] ? a : b
         );
@@ -851,21 +868,21 @@ export const moveStageBackward = async (req, res) => {
             await sendNotification(
               member._id,
               userId,
-              `Workflow ${workflow.workflowName} was reverted back to your stage as part of the committee ${prevCommittee.name}.`,
+              `Workflow ${workflow.name} was reverted back to your stage as part of the committee ${prevCommittee.name}.`,
               workflowId
             );
           }
           await sendNotification(
             prevCommittee.chairperson,
             userId,
-            `Workflow ${workflow.workflowName} was reverted back to your stage as the chairperson of committee ${prevCommittee.name}.`,
+            `Workflow ${workflow.name} was reverted back to your stage as the chairperson of committee ${prevCommittee.name}.`,
             workflowId
           );
         } else {
           await sendNotification(
             prevUserId,
             userId,
-            `Workflow ${workflow.workflowName} was reverted back to your stage.`,
+            `Workflow ${workflow.name} was reverted back to your stage.`,
             workflowId
           );
         }
@@ -1090,6 +1107,7 @@ export const rejectWorkflow = async (req, res) => {
   }
 };
 
+
 export const getWorkflowDetails = async (req, res) => {
   const { workflowId, userId } = req.params;
 
@@ -1279,7 +1297,7 @@ export const getAllWorkflowsOfOwner = async (req, res) => {
       })
       .select("name status createdAt workflowTemplate");
 
-    console.log(JSON.stringify(workflows, null, 2)); // Debugging line
+    // console.log(JSON.stringify(workflows, null, 2)); // Debugging line
 
     if (!workflows || workflows.length === 0) {
       return res
@@ -1523,7 +1541,7 @@ export async function saveAsDraft(req, res) {
       name: workflowName,
       workflowTemplate: workflowTemplateId,
       user: userId,
-      status:Draft
+      status: Draft,
     });
 
     // Generate PDF from document data
